@@ -771,7 +771,7 @@
 <!-- Full-Screen Onboarding Overlay -->
 <div class="nb-onboarding-wrapper" id="onboardingModal" style="display:none;">
   <div class="container h-100 d-flex align-items-center justify-content-center py-5">
-    <div class="row g-4 w-100" style="max-width: 1000px;">
+    <div class="row g-4" style="max-width: 1000px;">
       <!-- Left: Profile Settings -->
       <div class="col-lg-6">
         <div class="nb-card p-4 h-100 shadow-lg" style="background: var(--nb-surface); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
@@ -780,7 +780,7 @@
             <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Name</label>
             <input class="nb-input" id="ob-name" placeholder="Your name" required style="background: rgba(255,255,255,0.8); color: #000;" />
           </div>
-          <div class="d-flex gap-3 mb-3">
+          <div class="nb-form-row mb-3">
             <div class="flex-grow-1">
               <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Age</label>
               <input class="nb-input" id="ob-age" type="number" placeholder="25" min="1" max="120" required style="background: rgba(255,255,255,0.8); color: #000;" />
@@ -794,7 +794,7 @@
               </select>
             </div>
           </div>
-          <div class="d-flex gap-3 mb-3">
+          <div class="nb-form-row mb-3">
             <div class="flex-grow-1">
               <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Weight (kg)</label>
               <input class="nb-input" id="ob-weight" type="number" placeholder="65" required style="background: rgba(255,255,255,0.8); color: #000;" />

@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NutriBot — AI Nutrition Agent</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>" />
+  <link rel="icon" href="/static/img/logo.png" />
 
   <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- HTML2PDF -->
@@ -27,7 +27,7 @@
 <nav class="nb-navbar">
   <div class="nb-navbar-inner">
     <div class="nb-brand">
-      <span class="nb-brand-icon">🥗</span>
+      <img src="/static/img/logo.png" alt="NutriBot Logo" class="nb-brand-logo" style="height: 72px; width: 72px; object-fit: cover;" />
       <span class="nb-brand-text">NutriBot</span>
       <span class="nb-badge">AI</span>
     </div>
@@ -258,10 +258,15 @@
             
             <div class="mt-4 pt-3 border-top">
               <label class="form-label" style="font-size: 0.9rem;">Log today's weight (kg)</label>
-              <div class="d-flex gap-2">
+              <div class="d-flex gap-2 mb-3">
                 <input type="number" id="logWeightInput" class="nb-input" placeholder="e.g. 70.5" step="0.1">
                 <button id="logWeightBtn" class="nb-btn nb-btn-primary"><i class="bi bi-plus-lg"></i> Log</button>
               </div>
+              <label class="form-label d-flex justify-content-between align-items-center" style="font-size: 0.9rem;">
+                <span>Daily Water Intake</span>
+                <strong id="dashWaterCount" class="text-primary">0 / 8 Glasses</strong>
+              </label>
+              <button id="logWaterBtn" class="nb-btn nb-btn-primary w-100" style="background: rgba(13, 110, 253, 0.1); color: var(--bs-primary); border: 1px solid rgba(13,110,253,0.3);"><i class="bi bi-droplet-fill"></i> +1 Glass</button>
             </div>
           </div>
         </div>
@@ -501,9 +506,14 @@
         <div class="nb-card h-100">
           <div class="nb-card-header d-flex justify-content-between align-items-center">
             <div><i class="bi bi-calendar-week-fill"></i> Your Meal Plan</div>
-            <button class="nb-btn nb-btn-secondary nb-btn-sm" id="exportPdfBtn" style="display: none;">
-              <i class="bi bi-file-earmark-pdf"></i> Export to PDF
-            </button>
+            <div class="d-flex gap-2">
+              <button class="nb-btn nb-btn-secondary nb-btn-sm" id="groceryListBtn" style="display: none; background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.3);">
+                <i class="bi bi-cart3"></i> Grocery List
+              </button>
+              <button class="nb-btn nb-btn-secondary nb-btn-sm" id="exportPdfBtn" style="display: none;">
+                <i class="bi bi-file-earmark-pdf"></i> Export to PDF
+              </button>
+            </div>
           </div>
           <div class="nb-card-body" id="mealPlanOutput">
             <div class="nb-empty-state">
@@ -622,102 +632,235 @@
               </div>
             </div>
           </div>
-
-          <!-- Macro Targets -->
+          
+          <!-- History Chart -->
           <div class="nb-card mt-4">
-            <div class="nb-card-header"><i class="bi bi-pie-chart-fill"></i> Recommended Daily Macros</div>
+            <div class="nb-card-header"><i class="bi bi-graph-up-arrow"></i> Historical Trends</div>
             <div class="nb-card-body">
-              <div class="row g-3" id="macroDisplay"></div>
+              <canvas id="bmiTabChart" style="width: 100%; height: 250px; max-height: 250px;"></canvas>
             </div>
           </div>
         </div>
-        <div id="bmiEmpty" class="nb-card">
-          <div class="nb-card-body">
-            <div class="nb-empty-state">
-              <div class="nb-empty-icon">📏</div>
-              <p>Enter your stats to calculate your BMI and daily calorie needs</p>
+        
+        <div id="bmiEmpty" class="text-center py-5 text-muted">
+          <i class="bi bi-person-lines-fill" style="font-size: 3rem; opacity: 0.5;"></i>
+          <p class="mt-3">Enter your details and click Calculate to see your BMI</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── TAB: PROFILE ────────────────────────────────────────── -->
+  <section class="nb-tab" id="tab-profile">
+    <div class="nb-page-header">
+      <h1>My Profile</h1>
+      <p>Update your details and access quick prompts</p>
+    </div>
+
+    <div class="row g-4 w-100">
+      <!-- Left: Profile Settings -->
+      <div class="col-lg-6">
+        <div class="nb-card p-4 h-100 shadow-sm" style="background: var(--nb-surface); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+          <h5 class="mb-4"><i class="bi bi-person-fill"></i> Profile Settings</h5>
+          
+          <div class="mb-4 text-center">
+             <div class="position-relative d-inline-block">
+               <img id="profileAvatarImg" src="/static/img/logo.png" alt="Avatar" style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid #10b981; object-fit: cover; background: white;">
+               <div class="position-absolute bottom-0 end-0 bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; border: 2px solid #000; cursor:pointer;" title="Change Avatar" onclick="document.getElementById('p-avatar').style.display='block';">
+                 <i class="bi bi-camera-fill" style="font-size:0.8rem;"></i>
+               </div>
+             </div>
+             <input type="url" id="p-avatar" class="nb-input mt-3 mx-auto" style="display:none; max-width: 300px; background: rgba(255,255,255,0.8); color: #000;" placeholder="Enter Image URL">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Name</label>
+            <input class="nb-input" id="p-name" placeholder="Your name" required style="background: rgba(255,255,255,0.8); color: #000;" />
+          </div>
+          <div class="d-flex gap-3 mb-3">
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Age</label>
+              <input class="nb-input" id="p-age" type="number" placeholder="25" min="1" max="120" required style="background: rgba(255,255,255,0.8); color: #000;" />
             </div>
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Gender</label>
+              <select class="nb-input" id="p-gender" required style="background: rgba(255,255,255,0.8); color: #000;">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="d-flex gap-3 mb-3">
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Weight (kg)</label>
+              <input class="nb-input" id="p-weight" type="number" placeholder="65" required style="background: rgba(255,255,255,0.8); color: #000;" />
+            </div>
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Height (cm)</label>
+              <input class="nb-input" id="p-height" type="number" placeholder="170" required style="background: rgba(255,255,255,0.8); color: #000;" />
+            </div>
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Target Wt (kg)</label>
+              <input class="nb-input" id="p-target-weight" type="number" placeholder="75" required style="background: rgba(255,255,255,0.8); color: #000;" />
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Health Goal</label>
+            <select class="nb-input" id="p-goal" style="background: rgba(255,255,255,0.8); color: #000;">
+              <option value="gain weight">Gain Weight</option>
+              <option value="lose weight">Lose Weight</option>
+              <option value="maintain weight">Maintain Weight</option>
+              <option value="build muscle">Build Muscle</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Diet Type</label>
+            <select class="nb-input" id="p-diet" style="background: rgba(255,255,255,0.8); color: #000;">
+              <option value="balanced">Balanced</option>
+              <option value="vegetarian">Vegetarian</option>
+              <option value="vegan">Vegan</option>
+              <option value="keto">Keto</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Health Conditions</label>
+            <input class="nb-input" id="p-conditions" placeholder="Diabetes, PCOS, etc." style="background: rgba(255,255,255,0.8); color: #000;" />
+          </div>
+          <div class="mb-4">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Food Allergies</label>
+            <input class="nb-input" id="p-allergies" placeholder="e.g. Brinjal" style="background: rgba(255,255,255,0.8); color: #000;" />
+          </div>
+          <button class="nb-btn nb-btn-primary w-100 py-2 fw-bold" id="saveProfileBtn">
+            <i class="bi bi-check-circle"></i> Save Profile
+          </button>
+        </div>
+      </div>
+      <!-- Right: Quick Prompts Preview -->
+      <div class="col-lg-6">
+        <div class="nb-card p-4 h-100 shadow-sm" style="background: var(--nb-surface); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+          <h5 class="mb-4"><i class="bi bi-lightning-fill"></i> Quick Prompts</h5>
+          <div class="d-flex flex-wrap gap-2">
+             <div class="nb-chip" data-prompt="Breakfast ideas"><i class="bi bi-search"></i> Breakfast ideas</div>
+             <div class="nb-chip" data-prompt="High protein plan"><i class="bi bi-egg-fried text-warning"></i> High protein plan</div>
+             <div class="nb-chip" data-prompt="Weight loss foods"><i class="bi bi-arrow-down-circle text-success"></i> Weight loss foods</div>
+             <div class="nb-chip" data-prompt="Healthy snacks"><i class="bi bi-apple text-danger"></i> Healthy snacks</div>
+             <div class="nb-chip" data-prompt="Blood sugar tips"><i class="bi bi-droplet-half text-danger"></i> Blood sugar tips</div>
+             <div class="nb-chip" data-prompt="Bone health"><i class="bi bi-activity"></i> Bone health</div>
+             <div class="nb-chip" data-prompt="Hydration guide"><i class="bi bi-water text-info"></i> Hydration guide</div>
+             <div class="nb-chip" data-prompt="Indian thali"><i class="bi bi-basket" style="color: #a855f7;"></i> Indian thali</div>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-
-
 </main>
 
-<!-- Onboarding Modal Overlay -->
-<div class="nb-modal-overlay" id="onboardingModal" style="display:none;">
-  <div class="nb-modal-box">
-    <div class="nb-modal-header">
-      <h2><i class="bi bi-person-fill-exclamation"></i> Welcome to NutriBot</h2>
-      <p>Please fill out your mandatory profile details to get started.</p>
+<!-- Full-Screen Onboarding Overlay -->
+<div class="nb-onboarding-wrapper" id="onboardingModal" style="display:none;">
+  <div class="container h-100 d-flex align-items-center justify-content-center py-5">
+    <div class="row g-4 w-100" style="max-width: 1000px;">
+      <!-- Left: Profile Settings -->
+      <div class="col-lg-6">
+        <div class="nb-card p-4 h-100 shadow-lg" style="background: var(--nb-surface); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+          <h5 class="mb-4"><i class="bi bi-person-fill"></i> Profile Settings</h5>
+          <div class="mb-3">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Name</label>
+            <input class="nb-input" id="ob-name" placeholder="Your name" required style="background: rgba(255,255,255,0.8); color: #000;" />
+          </div>
+          <div class="d-flex gap-3 mb-3">
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Age</label>
+              <input class="nb-input" id="ob-age" type="number" placeholder="25" min="1" max="120" required style="background: rgba(255,255,255,0.8); color: #000;" />
+            </div>
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Gender</label>
+              <select class="nb-input" id="ob-gender" required style="background: rgba(255,255,255,0.8); color: #000;">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="d-flex gap-3 mb-3">
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Weight (kg)</label>
+              <input class="nb-input" id="ob-weight" type="number" placeholder="65" required style="background: rgba(255,255,255,0.8); color: #000;" />
+            </div>
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Height (cm)</label>
+              <input class="nb-input" id="ob-height" type="number" placeholder="170" required style="background: rgba(255,255,255,0.8); color: #000;" />
+            </div>
+            <div class="flex-grow-1">
+              <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Target Wt (kg)</label>
+              <input class="nb-input" id="ob-target-weight" type="number" placeholder="75" required style="background: rgba(255,255,255,0.8); color: #000;" />
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Health Goal</label>
+            <select class="nb-input" id="ob-goal" style="background: rgba(255,255,255,0.8); color: #000;">
+              <option value="gain weight">Gain Weight</option>
+              <option value="lose weight">Lose Weight</option>
+              <option value="maintain weight">Maintain Weight</option>
+              <option value="build muscle">Build Muscle</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Diet Type</label>
+            <select class="nb-input" id="ob-diet" style="background: rgba(255,255,255,0.8); color: #000;">
+              <option value="balanced">Balanced</option>
+              <option value="vegetarian">Vegetarian</option>
+              <option value="vegan">Vegan</option>
+              <option value="keto">Keto</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Health Conditions</label>
+            <input class="nb-input" id="ob-conditions" placeholder="Diabetes, PCOS, etc." style="background: rgba(255,255,255,0.8); color: #000;" />
+          </div>
+          <div class="mb-4">
+            <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Food Allergies</label>
+            <input class="nb-input" id="ob-allergies" placeholder="e.g. Brinjal" style="background: rgba(255,255,255,0.8); color: #000;" />
+          </div>
+          <button class="nb-btn nb-btn-primary w-100 py-2 fw-bold" id="saveOnboardingBtn">
+            <i class="bi bi-check-circle"></i> Save Profile
+          </button>
+        </div>
+      </div>
+      <!-- Right: Quick Prompts Preview -->
+      <div class="col-lg-6">
+        <div class="nb-card p-4 h-100 shadow-lg" style="background: var(--nb-surface); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+          <h5 class="mb-4"><i class="bi bi-lightning-fill"></i> Quick Prompts</h5>
+          <div class="d-flex flex-wrap gap-2">
+             <div class="nb-chip" style="pointer-events: none;"><i class="bi bi-search"></i> Breakfast ideas</div>
+             <div class="nb-chip" style="pointer-events: none;"><i class="bi bi-egg-fried text-warning"></i> High protein plan</div>
+             <div class="nb-chip" style="pointer-events: none;"><i class="bi bi-arrow-down-circle text-success"></i> Weight loss foods</div>
+             <div class="nb-chip" style="pointer-events: none;"><i class="bi bi-apple text-danger"></i> Healthy snacks</div>
+             <div class="nb-chip" style="pointer-events: none;"><i class="bi bi-droplet-half text-danger"></i> Blood sugar tips</div>
+             <div class="nb-chip" style="pointer-events: none;"><i class="bi bi-activity"></i> Bone health</div>
+             <div class="nb-chip" style="pointer-events: none;"><i class="bi bi-water text-info"></i> Hydration guide</div>
+             <div class="nb-chip" style="pointer-events: none;"><i class="bi bi-basket" style="color: #a855f7;"></i> Indian thali</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="nb-modal-body">
-      <div class="nb-form-group mb-3">
-        <label>Name *</label>
-        <input class="nb-input" id="ob-name" placeholder="Your name" required />
+  </div>
+</div>
+
+<!-- Grocery List Modal -->
+<div class="nb-onboarding-wrapper" id="groceryListModal" style="display:none; z-index: 1050; position: fixed; inset: 0; background: rgba(0,0,0,0.5);">
+  <div class="container h-100 d-flex align-items-center justify-content-center py-5">
+    <div class="nb-card shadow-lg p-4 w-100" style="max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; background: var(--nb-surface);">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0"><i class="bi bi-cart3"></i> Generated Grocery List</h5>
+        <button class="btn-close btn-close-white" onclick="document.getElementById('groceryListModal').style.display='none'"></button>
       </div>
-      <div class="nb-form-row mb-3">
-        <div class="nb-form-group">
-          <label>Age *</label>
-          <input class="nb-input" id="ob-age" type="number" placeholder="25" min="1" max="120" required />
-        </div>
-        <div class="nb-form-group">
-          <label>Gender *</label>
-          <select class="nb-input" id="ob-gender" required>
-            <option value="">Select</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
+      <div id="groceryListContent" class="flex-grow-1" style="overflow-y: auto;">
+        <!-- Filled by JS -->
       </div>
-      <div class="nb-form-row mb-3">
-        <div class="nb-form-group">
-          <label>Weight (kg) *</label>
-          <input class="nb-input" id="ob-weight" type="number" placeholder="65" required />
-        </div>
-        <div class="nb-form-group">
-          <label>Height (cm) *</label>
-          <input class="nb-input" id="ob-height" type="number" placeholder="165" required />
-        </div>
-      </div>
-      <div class="nb-form-group mb-3">
-        <label>Health Goal</label>
-        <select class="nb-input" id="ob-goal">
-          <option value="maintain weight">Maintain Weight</option>
-          <option value="lose weight">Lose Weight</option>
-          <option value="gain weight">Gain Weight</option>
-          <option value="build muscle">Build Muscle</option>
-          <option value="manage diabetes">Manage Diabetes</option>
-          <option value="heart health">Heart Health</option>
-          <option value="general wellness">General Wellness</option>
-        </select>
-      </div>
-      <div class="nb-form-group mb-3">
-        <label>Diet Type</label>
-        <select class="nb-input" id="ob-diet">
-          <option value="balanced">Balanced</option>
-          <option value="vegetarian">Vegetarian</option>
-          <option value="vegan">Vegan</option>
-          <option value="jain vegetarian">Jain Vegetarian</option>
-          <option value="non-vegetarian">Non-Vegetarian</option>
-          <option value="keto">Keto</option>
-          <option value="high-protein">High Protein</option>
-        </select>
-      </div>
-      <div class="nb-form-group mb-3">
-        <label>Health Conditions (Optional)</label>
-        <input class="nb-input" id="ob-conditions" placeholder="Diabetes, PCOS, etc." />
-      </div>
-      <div class="nb-form-group mb-4">
-        <label>Food Allergies (Optional)</label>
-        <input class="nb-input" id="ob-allergies" placeholder="Nuts, gluten, etc." />
-      </div>
-      <button class="nb-btn nb-btn-primary w-100" id="saveOnboardingBtn">
-        <i class="bi bi-rocket-takeoff-fill"></i> Save & Continue
+      <button class="nb-btn nb-btn-primary mt-3 w-100" onclick="window.print()">
+        <i class="bi bi-printer"></i> Print List
       </button>
     </div>
   </div>
@@ -739,6 +882,8 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Marked.js for markdown rendering -->
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+<!-- html2pdf for PDF Generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <!-- App JS -->
 <script src="/static/js/app.js"></script>
 </body>

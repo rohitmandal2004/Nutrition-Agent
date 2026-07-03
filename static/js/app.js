@@ -79,6 +79,7 @@ function switchTab(tabName) {
 // ── Profile Helpers ────────────────────────────────────────────
 function getProfile() {
   return {
+    avatar:           $('p-avatar')?.value?.trim() || '',
     name:             $('p-name')?.value?.trim()  || '',
     age:              $('p-age')?.value           || '',
     gender:           $('p-gender')?.value        || '',
@@ -89,8 +90,14 @@ function getProfile() {
     diet_type:        $('p-diet')?.value          || '',
     health_conditions: $('p-conditions')?.value?.trim() || '',
     allergies:        $('p-allergies')?.value?.trim()   || '',
+    medications:      $('p-medications')?.value?.trim() || '',
+    blood:            $('p-blood')?.value         || '',
+    activity_level:   $('p-activity')?.value      || 'moderate',
+    exercise:         $('p-exercise')?.value?.trim() || '',
+    sleep:            $('p-sleep')?.value         || '',
+    water:            $('p-water')?.value         || '',
+    waterCount:       State.userProfile?.waterCount || 0,
     cuisine:          'Indian',
-    activity_level:   'moderate',
   };
 }
 
@@ -106,6 +113,12 @@ function saveProfile() {
   if (p.height) { ['bmi-height'].forEach(id => { if ($(id)) $(id).value = p.height; }); }
   if (p.diet_type) { ['mp-diet'].forEach(id => { if ($(id)) $(id).value = p.diet_type; }); }
   
+  // Update Profile Avatar preview
+  if (p.avatar && $('profileAvatarImg')) {
+    $('profileAvatarImg').src = p.avatar;
+    $('p-avatar').style.display = 'none'; // hide input after save
+  }
+
   if (typeof renderDashboard === 'function') renderDashboard();
   
   showToast('✅ Profile saved!');
@@ -119,11 +132,63 @@ function appendMessage(role, content) {
 
   const avatar = document.createElement('div');
   avatar.className = 'nb-msg-avatar';
-  avatar.textContent = role === 'bot' ? '🥗' : '👤';
+  if (role === 'bot') {
+    avatar.textContent = '🥗';
+  } else {
+    if (State.userProfile && State.userProfile.avatar) {
+      avatar.innerHTML = `<img src="${State.userProfile.avatar}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;" />`;
+    } else {
+      avatar.textContent = '👤';
+    }
+  }
 
   const bubble = document.createElement('div');
   bubble.className = 'nb-msg-bubble nb-rendered-md';
   bubble.innerHTML = renderMd(content);
+
+  // Inject Action Buttons
+  if (role === 'bot') {
+    const actions = document.createElement('div');
+    actions.className = 'd-flex gap-2 mt-3 flex-wrap';
+    
+    if (content.toLowerCase().includes('meal plan')) {
+      const btn = document.createElement('button');
+      btn.className = 'nb-btn nb-btn-sm';
+      btn.style.background = 'rgba(13, 110, 253, 0.1)';
+      btn.style.color = '#0d6efd';
+      btn.style.border = '1px solid rgba(13,110,253,0.3)';
+      btn.innerHTML = '<i class="bi bi-calendar2-check"></i> Send to Meal Plan';
+      btn.onclick = () => {
+        if ($('mealPlanOutput')) {
+          $('mealPlanOutput').innerHTML = `<div class="nb-ai-output nb-rendered-md">${renderMd(content)}</div>`;
+          State.lastMealPlan = content;
+          if ($('exportPdfBtn')) show($('exportPdfBtn'));
+          if ($('groceryListBtn')) show($('groceryListBtn'));
+          switchTab('mealplan');
+          showToast('✅ Saved to Meal Plan tab');
+        }
+      };
+      actions.appendChild(btn);
+    }
+    
+    if (content.toLowerCase().includes('grocery') || content.toLowerCase().includes('shopping list')) {
+      const btn = document.createElement('button');
+      btn.className = 'nb-btn nb-btn-sm';
+      btn.style.background = 'rgba(16, 185, 129, 0.1)';
+      btn.style.color = '#10b981';
+      btn.style.border = '1px solid rgba(16,185,129,0.3)';
+      btn.innerHTML = '<i class="bi bi-cart3"></i> View Grocery List';
+      btn.onclick = () => {
+        $('groceryListContent').innerHTML = renderMd(content);
+        show($('groceryListModal'));
+      };
+      actions.appendChild(btn);
+    }
+
+    if (actions.children.length > 0) {
+      bubble.appendChild(actions);
+    }
+  }
 
   wrap.appendChild(avatar);
   wrap.appendChild(bubble);
@@ -248,10 +313,10 @@ async function loadSessionMessages(sessionId) {
         </div>
       `;
     }
-  } catch (err) {
-    console.error('Failed to load messages:', err);
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+    }
   }
-}
 
 async function deleteSession(sessionId) {
   if (!confirm('Are you sure you want to delete this chat?')) return;
@@ -447,14 +512,7 @@ async function fetchAndRenderProgress() {
 }
 
 function renderProgressChart(history) {
-  const canvas = $('progressChart');
-  if (!canvas) return;
-  
-  const ctx = canvas.getContext('2d');
-  
-  if (State.progressChart) {
-    State.progressChart.destroy();
-  }
+  const canvases = ['progressChart', 'bmiTabChart'];
   
   const labels = history.map(entry => {
     // Format date nicely (e.g. "Jul 3")
@@ -463,65 +521,79 @@ function renderProgressChart(history) {
   });
   const weights = history.map(entry => entry.weight);
   const bmis = history.map(entry => entry.bmi);
+
+  if (!State.charts) State.charts = {};
+
+  canvases.forEach(id => {
+    const canvas = $(id);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    if (State.charts[id]) {
+      State.charts[id].destroy();
+    }
   
-  State.progressChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels.length ? labels : ['No Data'],
-      datasets: [
-        {
-          label: 'Weight (kg)',
-          data: weights.length ? weights : [0],
-          borderColor: '#ff6b35', // Primary brand color
-          backgroundColor: 'rgba(255, 107, 53, 0.1)',
-          yAxisID: 'yWeight',
-          tension: 0.3,
-          fill: true
-        },
-        {
-          label: 'BMI',
-          data: bmis.length ? bmis : [0],
-          borderColor: '#4d8076', // Muted green/teal
-          backgroundColor: 'rgba(77, 128, 118, 0.1)',
-          yAxisID: 'yBmi',
-          tension: 0.3,
-          fill: true
-        },
-        ...(State.userProfile?.target_weight ? [{
-          label: 'Target Weight (kg)',
-          data: Array(labels.length).fill(parseFloat(State.userProfile.target_weight)),
-          borderColor: '#0d6efd',
-          borderDash: [5, 5],
-          yAxisID: 'yWeight',
-          pointRadius: 0,
-          fill: false,
-          tension: 0
-        }] : [])
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false,
+
+  
+    State.charts[id] = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels.length ? labels : ['No Data'],
+        datasets: [
+          {
+            label: 'Weight (kg)',
+            data: weights.length ? weights : [0],
+            borderColor: '#ff6b35', // Primary brand color
+            backgroundColor: 'rgba(255, 107, 53, 0.1)',
+            yAxisID: 'yWeight',
+            tension: 0.3,
+            fill: true
+          },
+          {
+            label: 'BMI',
+            data: bmis.length ? bmis : [0],
+            borderColor: '#4d8076', // Muted green/teal
+            backgroundColor: 'rgba(77, 128, 118, 0.1)',
+            yAxisID: 'yBmi',
+            tension: 0.3,
+            fill: true
+          },
+          ...(State.userProfile?.target_weight ? [{
+            label: 'Target Weight (kg)',
+            data: Array(labels.length).fill(parseFloat(State.userProfile.target_weight)),
+            borderColor: '#0d6efd',
+            borderDash: [5, 5],
+            yAxisID: 'yWeight',
+            pointRadius: 0,
+            fill: false,
+            tension: 0
+          }] : [])
+        ]
       },
-      scales: {
-        yWeight: {
-          type: 'linear',
-          display: true,
-          position: 'left',
-          title: { display: true, text: 'Weight (kg)' }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
         },
-        yBmi: {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          title: { display: true, text: 'BMI' },
-          grid: { drawOnChartArea: false }
+        scales: {
+          yWeight: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: { display: true, text: 'Weight (kg)' }
+          },
+          yBmi: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            title: { display: true, text: 'BMI' },
+            grid: { drawOnChartArea: false }
+          }
         }
       }
-    }
+    });
   });
 }
 
@@ -628,13 +700,61 @@ async function generateMealPlan() {
     const plan = data.meal_plan || data.error || 'Unable to generate plan.';
 
     output.innerHTML = `<div class="nb-ai-output nb-rendered-md">${renderMd(plan)}</div>`;
+    State.lastMealPlan = plan; // Store for grocery list parsing
+    
     if ($('exportPdfBtn')) show($('exportPdfBtn'));
+    if ($('groceryListBtn')) show($('groceryListBtn'));
   } catch (err) {
     output.innerHTML = '<p class="text-danger">⚠️ Failed to generate meal plan.</p>';
     console.error('Meal plan error:', err);
   } finally {
     hideLoading();
   }
+}
+
+async function generateGroceryList() {
+  if (!State.lastMealPlan) return;
+  showLoading('Extracting groceries...');
+  
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        message: `Extract a categorized grocery shopping list from this meal plan. Do not include anything else, just the list formatted as markdown. Meal Plan: \n\n${State.lastMealPlan}`, 
+        history: [] 
+      })
+    });
+    
+    const data = await res.json();
+    const list = data.reply || 'Could not generate list.';
+    
+    $('groceryListContent').innerHTML = renderMd(list);
+    show($('groceryListModal'));
+  } catch (err) {
+    showToast('⚠️ Failed to generate grocery list');
+    console.error(err);
+  } finally {
+    hideLoading();
+  }
+}
+
+function exportPdf(elementId, filename) {
+  const element = $(elementId);
+  if (!element || !window.html2pdf) {
+    showToast('⚠️ PDF export unavailable');
+    return;
+  }
+  
+  const opt = {
+    margin:       0.5,
+    filename:     filename,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2 },
+    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+  
+  html2pdf().set(opt).from(element).save();
 }
 
 // ── BMI Calculator ─────────────────────────────────────────────
@@ -688,26 +808,28 @@ async function calculateBMI() {
     // Macros
     const m = d.macros || {};
     const macroContainer = $('macroDisplay');
-    const macros = [
-      { name: 'Protein',       val: m.protein_g, unit: 'g', color: '#FF6B35', pct: 30 },
-      { name: 'Carbohydrates', val: m.carbs_g,   unit: 'g', color: '#2563EB', pct: 45 },
-      { name: 'Fats',          val: m.fat_g,     unit: 'g', color: '#7C3AED', pct: 25 },
-    ];
+    if (macroContainer) {
+      const macros = [
+        { name: 'Protein',       val: m.protein_g, unit: 'g', color: '#FF6B35', pct: 30 },
+        { name: 'Carbohydrates', val: m.carbs_g,   unit: 'g', color: '#2563EB', pct: 45 },
+        { name: 'Fats',          val: m.fat_g,     unit: 'g', color: '#7C3AED', pct: 25 },
+      ];
 
-    macroContainer.innerHTML = macros.map(mac => `
-      <div class="col-12 col-md-4">
-        <div class="nb-macro-bar-wrap">
-          <div class="nb-macro-label">
-            <span>${mac.name}</span>
-            <strong>${mac.val ?? '--'}${mac.unit}</strong>
-          </div>
-          <div class="nb-macro-bar">
-            <div class="nb-macro-fill" style="width:0%;background:${mac.color};"
-              data-target="${mac.pct}"></div>
+      macroContainer.innerHTML = macros.map(mac => `
+        <div class="col-12 col-md-4">
+          <div class="nb-macro-bar-wrap">
+            <div class="nb-macro-label">
+              <span>${mac.name}</span>
+              <strong>${mac.val ?? '--'}${mac.unit}</strong>
+            </div>
+            <div class="nb-macro-bar">
+              <div class="nb-macro-fill" style="width:0%;background:${mac.color};"
+                data-target="${mac.pct}"></div>
+            </div>
           </div>
         </div>
-      </div>
-    `).join('');
+      `).join('');
+    }
 
     // Animate bars
     setTimeout(() => {
@@ -886,9 +1008,24 @@ async function checkHealth() {
   } catch (e) { /* silent */ }
 }
 
+// ── Dashboard Rendering ─────────────────────────────────────────
+async function renderDashboard() {
+  if (typeof updateDashboardCalculations === 'function') updateDashboardCalculations();
+  if (typeof fetchAndRenderProgress === 'function') await fetchAndRenderProgress();
+  
+  if ($('dashWaterCount') && State.userProfile) {
+    const wc = State.userProfile.waterCount || 0;
+    $('dashWaterCount').textContent = `${wc} / 8 Glasses`;
+  }
+}
+
 // ── Load State into UI ─────────────────────────────────────────
 function loadStateIntoUI() {
   const p = State.userProfile;
+  if (p.avatar) {
+    if ($('p-avatar')) $('p-avatar').value = p.avatar;
+    if ($('profileAvatarImg')) $('profileAvatarImg').src = p.avatar;
+  }
   if (p.name) { ['p-name', 'd-name'].forEach(id => { if ($(id)) $(id).value = p.name; }); }
   if (p.age) { ['p-age', 'd-age', 'bmi-age'].forEach(id => { if ($(id)) $(id).value = p.age; }); }
   if (p.gender) { ['p-gender', 'd-gender', 'bmi-gender'].forEach(id => { if ($(id)) $(id).value = p.gender; }); }
@@ -899,7 +1036,64 @@ function loadStateIntoUI() {
   if (p.diet_type) { ['p-diet', 'd-diet', 'mp-diet'].forEach(id => { if ($(id)) $(id).value = p.diet_type; }); }
   if (p.health_conditions) { ['p-conditions', 'd-conditions'].forEach(id => { if ($(id)) $(id).value = p.health_conditions; }); }
   if (p.allergies) { ['p-allergies', 'd-allergies'].forEach(id => { if ($(id)) $(id).value = p.allergies; }); }
+  if (p.medications) { if ($('p-medications')) $('p-medications').value = p.medications; }
+  if (p.blood) { if ($('p-blood')) $('p-blood').value = p.blood; }
+  if (p.activity_level) { if ($('p-activity')) $('p-activity').value = p.activity_level; }
+  if (p.exercise) { if ($('p-exercise')) $('p-exercise').value = p.exercise; }
+  if (p.sleep) { if ($('p-sleep')) $('p-sleep').value = p.sleep; }
+  if (p.water) { if ($('p-water')) $('p-water').value = p.water; }
+
+  if (p.diet_type && $('dietTypeContainer')) {
+    document.querySelectorAll('#dietTypeContainer .nb-chip-select').forEach(c => {
+      c.classList.toggle('active', c.dataset.val === p.diet_type);
+    });
+  }
+
+  if (typeof updateDashboardCalculations === 'function') updateDashboardCalculations();
 }
+
+// ── Profile Dashboard Calculations ──────────────────────────────
+function updateDashboardCalculations() {
+  const p = State.userProfile;
+  if (!p || !p.weight || !p.height || !p.age) return;
+  
+  const w = parseFloat(p.weight);
+  const h = parseFloat(p.height);
+  const a = parseInt(p.age);
+  const isMale = (p.gender === 'male');
+  
+  // BMI
+  const heightM = h / 100;
+  const bmi = w / (heightM * heightM);
+  if ($('p-display-bmi')) $('p-display-bmi').textContent = bmi.toFixed(1);
+  
+  // BMR (Mifflin-St Jeor)
+  let bmr = (10 * w) + (6.25 * h) - (5 * a);
+  bmr += isMale ? 5 : -161;
+  if ($('p-display-bmr')) $('p-display-bmr').textContent = Math.round(bmr);
+  
+  // Display stats
+  if ($('p-display-name')) $('p-display-name').textContent = p.name || 'User';
+  if ($('p-display-age')) $('p-display-age').textContent = p.age || '--';
+  if ($('p-display-gender')) $('p-display-gender').textContent = p.gender || '--';
+  
+  // Health Score Simulation (just a visual representation)
+  let score = 70;
+  if (bmi > 18.5 && bmi < 25) score += 15;
+  if (p.water >= 2.5) score += 5;
+  if (p.sleep >= 7) score += 5;
+  if (p.activity_level === 'active') score += 5;
+  
+  if ($('p-display-score')) $('p-display-score').textContent = Math.round(score);
+  
+  const ring = $('healthScoreRing');
+  if (ring) {
+    const offset = 100 - score;
+    ring.style.strokeDashoffset = offset;
+    ring.style.strokeDasharray = `${score}, 100`;
+  }
+}
+
 
 // ── Event Listeners ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -928,6 +1122,17 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(err);
     }
   });
+
+  // Setup Dashboard Quick Log Buttons
+  if ($('logWaterBtn')) {
+    $('logWaterBtn').addEventListener('click', () => {
+      if (!State.userProfile) State.userProfile = {};
+      State.userProfile.waterCount = (State.userProfile.waterCount || 0) + 1;
+      localStorage.setItem('nb-userProfile', JSON.stringify(State.userProfile));
+      renderDashboard();
+      showToast('💧 Water logged! Keep hydrating.');
+    });
+  }
   
   // New Chat button
   $('newChatBtn')?.addEventListener('click', () => createNewSession());
@@ -944,9 +1149,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const obGender = $('ob-gender').value;
     const obWeight = $('ob-weight').value;
     const obHeight = $('ob-height').value;
+    const obTargetWeight = $('ob-target-weight')?.value || '';
     
     if (!obName || !obAge || !obGender || !obWeight || !obHeight) {
-      showToast('⚠️ Please fill out all mandatory fields (*).');
+      showToast('⚠️ Please fill out all mandatory fields.');
       return;
     }
 
@@ -956,6 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gender: obGender,
       weight: obWeight,
       height: obHeight,
+      target_weight: obTargetWeight,
       goal: $('ob-goal').value,
       diet_type: $('ob-diet').value,
       health_conditions: $('ob-conditions').value.trim(),
@@ -968,8 +1175,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadStateIntoUI();
     
     // Also update the sidebar form specifically since loadStateIntoUI maps to 'p-*' prefixed inputs
-    ['name', 'age', 'gender', 'weight', 'height', 'goal', 'diet_type', 'health_conditions', 'allergies'].forEach(key => {
-      const el = $(`p-${key === 'diet_type' ? 'diet' : key === 'health_conditions' ? 'conditions' : key}`);
+    ['name', 'age', 'gender', 'weight', 'height', 'target_weight', 'goal', 'diet_type', 'health_conditions', 'allergies'].forEach(key => {
+      const el = $(`p-${key === 'diet_type' ? 'diet' : key === 'health_conditions' ? 'conditions' : key === 'target_weight' ? 'target-weight' : key}`);
       if (el) el.value = State.userProfile[key];
     });
 
@@ -991,6 +1198,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Save profile
   $('saveProfileBtn')?.addEventListener('click', saveProfile);
+  
+  // ── Profile Diet Chips
+  document.querySelectorAll('#dietTypeContainer .nb-chip-select').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#dietTypeContainer .nb-chip-select').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      const pDiet = $('p-diet');
+      if (pDiet) pDiet.value = chip.dataset.val;
+    });
+  });
 
   // ── Chat send
   $('sendBtn')?.addEventListener('click', () => {
@@ -1071,8 +1288,9 @@ document.addEventListener('DOMContentLoaded', () => {
   $('addMemberBtn')?.addEventListener('click', () => {
     show($('addMemberForm'));
     $('fm-name')?.focus();
+    $('familyEmpty').style.display = 'none';
   });
-
+  
   $('cancelMemberBtn')?.addEventListener('click', () => {
     hide($('addMemberForm'));
     clearMemberForm();

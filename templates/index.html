@@ -14,6 +14,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- HTML2PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
@@ -30,11 +32,10 @@
       <span class="nb-badge">AI</span>
     </div>
     <div class="nb-nav-links d-none d-md-flex">
-      <button class="nb-nav-btn" data-tab="chat"><i class="bi bi-chat-dots-fill"></i> Chat</button>
       <button class="nb-nav-btn active" data-tab="dashboard"><i class="bi bi-speedometer2"></i> Dashboard</button>
+      <button class="nb-nav-btn" data-tab="chat"><i class="bi bi-chat-dots-fill"></i> Chat</button>
       <button class="nb-nav-btn" data-tab="mealplan"><i class="bi bi-calendar3"></i> Meal Plan</button>
       <button class="nb-nav-btn" data-tab="bmi"><i class="bi bi-calculator-fill"></i> BMI</button>
-      <button class="nb-nav-btn" data-tab="family"><i class="bi bi-people-fill"></i> Family</button>
       <button class="nb-nav-btn" data-tab="profile"><i class="bi bi-person-circle"></i> Profile</button>
     </div>
     <div class="nb-nav-actions">
@@ -47,11 +48,10 @@
 
 <!-- Mobile Nav -->
 <div class="nb-mobile-nav d-md-none" id="mobileNav">
-  <button class="nb-mobile-nav-btn" data-tab="chat"><i class="bi bi-house-door-fill"></i><span>Chat</span></button>
   <button class="nb-mobile-nav-btn active" data-tab="dashboard"><i class="bi bi-speedometer2"></i><span>Dash</span></button>
+  <button class="nb-mobile-nav-btn" data-tab="chat"><i class="bi bi-house-door-fill"></i><span>Chat</span></button>
   <button class="nb-mobile-nav-btn" data-tab="mealplan"><i class="bi bi-calendar-check"></i><span>Meals</span></button>
   <button class="nb-mobile-nav-btn" data-tab="bmi"><i class="bi bi-plus-square"></i><span>BMI</span></button>
-  <button class="nb-mobile-nav-btn" data-tab="family"><i class="bi bi-heart"></i><span>Family</span></button>
   <button class="nb-mobile-nav-btn" data-tab="profile"><i class="bi bi-person-circle"></i><span>Profile</span></button>
 </div>
 
@@ -98,6 +98,10 @@
               <div class="nb-form-group">
                 <label>Height (cm)</label>
                 <input class="nb-input" id="p-height" type="number" placeholder="165" />
+              </div>
+              <div class="nb-form-group">
+                <label>Target Wt (kg)</label>
+                <input class="nb-input" id="p-target-weight" type="number" placeholder="60" />
               </div>
             </div>
             <div class="nb-form-group mt-2">
@@ -158,7 +162,7 @@
   </section>
 
   <!-- ─── TAB: CHAT ─────────────────────────────────────────── -->
-  <section class="nb-tab active" id="tab-chat">
+  <section class="nb-tab" id="tab-chat">
     <div class="nb-chat-layout has-sidebar">
       
       <!-- Chat History Sidebar -->
@@ -222,7 +226,7 @@
   </section>
 
   <!-- ─── TAB: DASHBOARD ────────────────────────────────────── -->
-  <section class="nb-tab" id="tab-dashboard">
+  <section class="nb-tab active" id="tab-dashboard">
     <div class="nb-page-header">
       <h1>Nutrition Dashboard</h1>
       <p>Generate a personalized nutrition plan based on your profile</p>
@@ -273,46 +277,74 @@
         </div>
       </div>
     </div>
-
-    <!-- Meal Analyzer & Food Database -->
+    
+    <!-- Today's Macros Tracker -->
     <div class="row g-4 mt-2">
-      <!-- Meal Analyzer -->
-      <div class="col-lg-6">
-        <div class="nb-card h-100">
-          <div class="nb-card-header"><i class="bi bi-search-heart-fill"></i> Meal Analyzer</div>
-          <div class="nb-card-body d-flex flex-column">
-            <div class="nb-form-row align-items-end">
-              <div class="nb-form-group flex-grow-1">
-                <label>Describe your meal</label>
-                <input class="nb-input" id="mealAnalyzerInput"
-                  placeholder="e.g. 2 rotis with dal makhani..." />
+      <div class="col-lg-12">
+        <div class="nb-card">
+          <div class="nb-card-header"><i class="bi bi-pie-chart-fill"></i> Today's Macros</div>
+          <div class="nb-card-body">
+            <div class="row text-center mb-3">
+              <div class="col-3">
+                <h4 class="mb-0 text-danger" id="macroCal">0</h4>
+                <small class="nb-muted">Calories</small>
               </div>
-              <button class="nb-btn nb-btn-secondary" id="analyzeMealBtn">
-                <i class="bi bi-microscope"></i> Analyze
-              </button>
+              <div class="col-3">
+                <h4 class="mb-0 text-success" id="macroPro">0g</h4>
+                <small class="nb-muted">Protein</small>
+              </div>
+              <div class="col-3">
+                <h4 class="mb-0 text-primary" id="macroCarb">0g</h4>
+                <small class="nb-muted">Carbs</small>
+              </div>
+              <div class="col-3">
+                <h4 class="mb-0 text-warning" id="macroFat">0g</h4>
+                <small class="nb-muted">Fats</small>
+              </div>
             </div>
-            <div id="mealAnalysisOutput" class="nb-ai-output mt-3 flex-grow-1" style="display:none;"></div>
+            
+            <div id="dailyLogList" class="d-flex flex-column gap-2" style="max-height: 200px; overflow-y: auto;">
+              <!-- Logged foods will appear here -->
+              <div class="text-center nb-muted p-2" id="dailyLogEmpty">No foods logged today. Search the database below to add foods!</div>
+            </div>
           </div>
         </div>
       </div>
-      
-      <!-- Food Database -->
-      <div class="col-lg-6">
-        <div class="nb-card h-100">
-          <div class="nb-card-header"><i class="bi bi-database-fill"></i> Indian Food Database</div>
+    </div>
+
+    <!-- Unified Meal Analyzer & Food Database -->
+    <div class="row g-4 mt-2">
+      <div class="col-lg-12">
+        <div class="nb-card">
+          <div class="nb-card-header"><i class="bi bi-search-heart-fill"></i> Smart Food & Meal Analyzer</div>
           <div class="nb-card-body d-flex flex-column">
             <div class="nb-form-row align-items-end">
               <div class="nb-form-group flex-grow-1">
-                <label>Search exact nutrition for a dish</label>
-                <input class="nb-input" id="foodDbInput"
-                  placeholder="e.g. Garam Chai, Samosa..." />
+                <label>Describe your meal or search for an Indian dish</label>
+                <input class="nb-input" id="unifiedFoodInput"
+                  placeholder="e.g. 2 rotis with dal makhani, or 'Garam Chai'..." />
               </div>
-              <button class="nb-btn nb-btn-secondary" id="searchFoodBtn">
-                <i class="bi bi-search"></i> Search
-              </button>
+              <div class="d-flex gap-2">
+                <button class="nb-btn nb-btn-secondary" id="searchFoodBtn">
+                  <i class="bi bi-database"></i> Search Database
+                </button>
+                <button class="nb-btn nb-btn-primary" id="analyzeMealBtn">
+                  <i class="bi bi-microscope"></i> AI Analyze Meal
+                </button>
+              </div>
             </div>
-            <div id="foodDbOutput" class="mt-3 flex-grow-1" style="display:none; overflow-y:auto; max-height:300px;">
-              <!-- Results go here -->
+            
+            <div class="row mt-3">
+              <!-- AI Analysis Output (Left side) -->
+              <div class="col-md-6">
+                <div id="mealAnalysisOutput" class="nb-ai-output h-100" style="display:none; overflow-y:auto; max-height:400px;"></div>
+              </div>
+              <!-- DB Search Output (Right side) -->
+              <div class="col-md-6">
+                <div id="foodDbOutput" class="h-100" style="display:none; overflow-y:auto; max-height:400px;">
+                  <!-- Results go here -->
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -392,14 +424,87 @@
               <input class="nb-input" id="mp-exclusions" placeholder="Onion, garlic, dairy..." />
             </div>
             <button class="nb-btn nb-btn-primary w-100" id="generateMealPlanBtn">
-              <i class="bi bi-calendar2-plus-fill"></i> Generate Meal Plan
+              <i class="bi bi-calendar2-plus-fill"></i> Generate Personal Plan
             </button>
           </div>
         </div>
+        
+        <!-- Family Members Card -->
+        <div class="nb-card mt-4">
+          <div class="nb-card-header">
+            <i class="bi bi-people-fill"></i> Family Members
+            <button class="nb-btn nb-btn-sm nb-btn-outline ms-auto" id="addMemberBtn">
+              <i class="bi bi-plus-lg"></i> Add
+            </button>
+          </div>
+          <div class="nb-card-body">
+            <div id="familyMembersList"></div>
+            <div class="nb-empty-state" id="familyEmpty">
+              <div class="nb-empty-icon">👨‍👩‍👧</div>
+              <p>Click <strong>Add</strong> to add family members</p>
+            </div>
+            <button class="nb-btn nb-btn-primary w-100 mt-3" id="generateFamilyPlanBtn" style="display:none;">
+              <i class="bi bi-stars"></i> Generate Family Plan
+            </button>
+          </div>
+        </div>
+
+        <!-- Add Member Form -->
+        <div class="nb-card mt-3" id="addMemberForm" style="display:none;">
+          <div class="nb-card-header"><i class="bi bi-person-plus-fill"></i> New Member</div>
+          <div class="nb-card-body">
+            <div class="nb-form-row">
+              <div class="nb-form-group">
+                <label>Name</label>
+                <input class="nb-input" id="fm-name" placeholder="e.g. Priya" />
+              </div>
+              <div class="nb-form-group">
+                <label>Age</label>
+                <input class="nb-input" id="fm-age" type="number" placeholder="35" />
+              </div>
+            </div>
+            <div class="nb-form-row">
+              <div class="nb-form-group">
+                <label>Gender</label>
+                <select class="nb-input" id="fm-gender">
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </select>
+              </div>
+              <div class="nb-form-group">
+                <label>Health Goal</label>
+                <select class="nb-input" id="fm-goal">
+                  <option value="healthy eating">Healthy Eating</option>
+                  <option value="weight loss">Weight Loss</option>
+                  <option value="weight gain">Weight Gain</option>
+                  <option value="manage diabetes">Manage Diabetes</option>
+                  <option value="child growth">Child Growth</option>
+                  <option value="senior health">Senior Health</option>
+                </select>
+              </div>
+            </div>
+            <div class="nb-form-group">
+              <label>Health Conditions</label>
+              <input class="nb-input" id="fm-conditions" placeholder="Diabetes, none, etc." />
+            </div>
+            <div class="nb-form-row">
+              <button class="nb-btn nb-btn-primary flex-grow-1" id="saveMemberBtn">
+                <i class="bi bi-check-lg"></i> Add Member
+              </button>
+              <button class="nb-btn nb-btn-outline" id="cancelMemberBtn">Cancel</button>
+            </div>
+          </div>
+        </div>
+
       </div>
       <div class="col-lg-8">
         <div class="nb-card h-100">
-          <div class="nb-card-header"><i class="bi bi-calendar-week-fill"></i> Your Meal Plan</div>
+          <div class="nb-card-header d-flex justify-content-between align-items-center">
+            <div><i class="bi bi-calendar-week-fill"></i> Your Meal Plan</div>
+            <button class="nb-btn nb-btn-secondary nb-btn-sm" id="exportPdfBtn" style="display: none;">
+              <i class="bi bi-file-earmark-pdf"></i> Export to PDF
+            </button>
+          </div>
           <div class="nb-card-body" id="mealPlanOutput">
             <div class="nb-empty-state">
               <div class="nb-empty-icon">🗓️</div>
@@ -538,95 +643,7 @@
     </div>
   </section>
 
-  <!-- ─── TAB: FAMILY ───────────────────────────────────────── -->
-  <section class="nb-tab" id="tab-family">
-    <div class="nb-page-header">
-      <h1>Family Nutrition Planner</h1>
-      <p>Create a unified meal plan that works for the whole family</p>
-    </div>
-    <div class="row g-4">
-      <div class="col-lg-5">
-        <div class="nb-card">
-          <div class="nb-card-header">
-            <i class="bi bi-people-fill"></i> Family Members
-            <button class="nb-btn nb-btn-sm nb-btn-outline ms-auto" id="addMemberBtn">
-              <i class="bi bi-plus-lg"></i> Add
-            </button>
-          </div>
-          <div class="nb-card-body">
-            <div id="familyMembersList"></div>
-            <div class="nb-empty-state" id="familyEmpty">
-              <div class="nb-empty-icon">👨‍👩‍👧</div>
-              <p>Click <strong>Add</strong> to add family members</p>
-            </div>
-          </div>
-        </div>
 
-        <!-- Add Member Form -->
-        <div class="nb-card mt-3" id="addMemberForm" style="display:none;">
-          <div class="nb-card-header"><i class="bi bi-person-plus-fill"></i> New Member</div>
-          <div class="nb-card-body">
-            <div class="nb-form-row">
-              <div class="nb-form-group">
-                <label>Name</label>
-                <input class="nb-input" id="fm-name" placeholder="e.g. Priya" />
-              </div>
-              <div class="nb-form-group">
-                <label>Age</label>
-                <input class="nb-input" id="fm-age" type="number" placeholder="35" />
-              </div>
-            </div>
-            <div class="nb-form-row">
-              <div class="nb-form-group">
-                <label>Gender</label>
-                <select class="nb-input" id="fm-gender">
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                </select>
-              </div>
-              <div class="nb-form-group">
-                <label>Health Goal</label>
-                <select class="nb-input" id="fm-goal">
-                  <option value="healthy eating">Healthy Eating</option>
-                  <option value="weight loss">Weight Loss</option>
-                  <option value="weight gain">Weight Gain</option>
-                  <option value="manage diabetes">Manage Diabetes</option>
-                  <option value="child growth">Child Growth</option>
-                  <option value="senior health">Senior Health</option>
-                </select>
-              </div>
-            </div>
-            <div class="nb-form-group">
-              <label>Health Conditions</label>
-              <input class="nb-input" id="fm-conditions" placeholder="Diabetes, none, etc." />
-            </div>
-            <div class="nb-form-row">
-              <button class="nb-btn nb-btn-primary flex-grow-1" id="saveMemberBtn">
-                <i class="bi bi-check-lg"></i> Add Member
-              </button>
-              <button class="nb-btn nb-btn-outline" id="cancelMemberBtn">Cancel</button>
-            </div>
-          </div>
-        </div>
-
-        <button class="nb-btn nb-btn-primary w-100 mt-3" id="generateFamilyPlanBtn" style="display:none;">
-          <i class="bi bi-stars"></i> Generate Family Plan
-        </button>
-      </div>
-
-      <div class="col-lg-7">
-        <div class="nb-card h-100">
-          <div class="nb-card-header"><i class="bi bi-house-heart-fill"></i> Family Nutrition Plan</div>
-          <div class="nb-card-body" id="familyPlanOutput">
-            <div class="nb-empty-state">
-              <div class="nb-empty-icon">👨‍👩‍👧‍👦</div>
-              <p>Add family members and generate a plan that works for everyone</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
 
 </main>
 

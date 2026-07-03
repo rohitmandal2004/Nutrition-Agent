@@ -84,6 +84,7 @@ function getProfile() {
     gender:           $('p-gender')?.value        || '',
     weight:           $('p-weight')?.value        || '',
     height:           $('p-height')?.value        || '',
+    target_weight:    $('p-target-weight')?.value || '',
     goal:             $('p-goal')?.value          || '',
     diet_type:        $('p-diet')?.value          || '',
     health_conditions: $('p-conditions')?.value?.trim() || '',
@@ -344,7 +345,86 @@ async function renderDashboard() {
     if ($('dashBmi')) $('dashBmi').textContent = currentBmi;
   }
   
+  await fetchAndRenderDailyLogs();
   await fetchAndRenderProgress();
+}
+
+async function fetchAndRenderDailyLogs() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const res = await fetch(`/api/daily-log?date=${today}`);
+    const data = await res.json();
+    const logs = data.logs || [];
+    
+    let totalCal = 0, totalPro = 0, totalCarb = 0, totalFat = 0;
+    const list = $('dailyLogList');
+    
+    if (logs.length > 0) {
+      if ($('dailyLogEmpty')) hide($('dailyLogEmpty'));
+      list.innerHTML = logs.map(log => {
+        totalCal += log.calories || 0;
+        totalPro += log.protein || 0;
+        totalCarb += log.carbs || 0;
+        totalFat += log.fats || 0;
+        return `
+          <div class="d-flex justify-content-between align-items-center nb-card p-2 border-0" style="background: var(--nb-bg);">
+            <div style="font-size: 0.9rem; font-weight: 500;">${escHtml(log.food_name)}</div>
+            <div style="font-size: 0.8rem;" class="nb-muted">
+              <span class="text-danger fw-bold">${Math.round(log.calories)}</span> kcal | 
+              P: ${Math.round(log.protein)}g 
+              C: ${Math.round(log.carbs)}g 
+              F: ${Math.round(log.fats)}g
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      list.innerHTML = '<div class="text-center nb-muted p-2" id="dailyLogEmpty">No foods logged today. Search the database below to add foods!</div>';
+    }
+    
+    if ($('macroCal')) $('macroCal').textContent = Math.round(totalCal);
+    if ($('macroPro')) $('macroPro').textContent = Math.round(totalPro) + 'g';
+    if ($('macroCarb')) $('macroCarb').textContent = Math.round(totalCarb) + 'g';
+    if ($('macroFat')) $('macroFat').textContent = Math.round(totalFat) + 'g';
+  } catch (err) {
+    console.error('Failed to fetch daily logs:', err);
+  }
+}
+
+async function addDailyLog(btn) {
+  const data = {
+    food_name: btn.dataset.name,
+    calories: parseFloat(btn.dataset.cal) || 0,
+    protein: parseFloat(btn.dataset.pro) || 0,
+    carbs: parseFloat(btn.dataset.carb) || 0,
+    fats: parseFloat(btn.dataset.fat) || 0
+  };
+  
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '...';
+  btn.disabled = true;
+  
+  try {
+    const res = await fetch('/api/daily-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    if (res.ok) {
+      btn.innerHTML = '<i class="bi bi-check2"></i> Added';
+      btn.classList.replace('nb-btn-primary', 'nb-btn-success');
+      showToast(`${data.food_name} added to today's log!`);
+      await fetchAndRenderDailyLogs();
+    } else {
+      throw new Error('Failed to add');
+    }
+  } catch (err) {
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+    showToast('Failed to add food to log.');
+    console.error(err);
+  }
 }
 
 async function fetchAndRenderProgress() {
@@ -406,7 +486,17 @@ function renderProgressChart(history) {
           yAxisID: 'yBmi',
           tension: 0.3,
           fill: true
-        }
+        },
+        ...(State.userProfile?.target_weight ? [{
+          label: 'Target Weight (kg)',
+          data: Array(labels.length).fill(parseFloat(State.userProfile.target_weight)),
+          borderColor: '#0d6efd',
+          borderDash: [5, 5],
+          yAxisID: 'yWeight',
+          pointRadius: 0,
+          fill: false,
+          tension: 0
+        }] : [])
       ]
     },
     options: {
@@ -484,7 +574,7 @@ async function logProgress() {
 
 // ── Meal Analyzer ──────────────────────────────────────────────
 async function analyzeMeal() {
-  const meal = $('mealAnalyzerInput')?.value.trim();
+  const meal = $('unifiedFoodInput')?.value.trim();
   if (!meal) { showToast('Please describe your meal first.'); return; }
 
   showLoading('Analyzing your meal...');
@@ -538,6 +628,7 @@ async function generateMealPlan() {
     const plan = data.meal_plan || data.error || 'Unable to generate plan.';
 
     output.innerHTML = `<div class="nb-ai-output nb-rendered-md">${renderMd(plan)}</div>`;
+    if ($('exportPdfBtn')) show($('exportPdfBtn'));
   } catch (err) {
     output.innerHTML = '<p class="text-danger">⚠️ Failed to generate meal plan.</p>';
     console.error('Meal plan error:', err);
@@ -637,7 +728,7 @@ async function calculateBMI() {
 
 // ── Indian Food Database ───────────────────────────────────────
 async function searchFoodDb() {
-  const query = $('foodDbInput')?.value?.trim();
+  const query = $('unifiedFoodInput')?.value?.trim();
   const output = $('foodDbOutput');
   
   if (!query) {
@@ -662,7 +753,12 @@ async function searchFoodDb() {
       data.results.forEach(item => {
         html += `
           <div class="nb-card" style="padding: 0.75rem; border-color: var(--nb-muted);">
-            <strong>${escHtml(item['Dish Name'] || 'Unknown')}</strong>
+            <div class="d-flex justify-content-between align-items-center">
+              <strong>${escHtml(item['Dish Name'] || 'Unknown')}</strong>
+              <button class="nb-btn nb-btn-sm nb-btn-primary add-log-btn" data-name="${escHtml(item['Dish Name'])}" data-cal="${item['Calories (kcal)']}" data-pro="${item['Protein (g)']}" data-carb="${item['Carbohydrates (g)']}" data-fat="${item['Fats (g)']}">
+                <i class="bi bi-plus-lg"></i> Add
+              </button>
+            </div>
             <div style="font-size: 0.85rem; color: var(--nb-fg); margin-top: 0.25rem;">
               <span class="badge bg-danger" style="margin-right:0.25rem;">${item['Calories (kcal)']} kcal</span>
               <span class="badge bg-success" style="margin-right:0.25rem;">P: ${item['Protein (g)']}g</span>
@@ -743,7 +839,7 @@ async function generateFamilyPlan() {
   }
 
   showLoading('Generating your family nutrition plan...');
-  const output = $('familyPlanOutput');
+  const output = $('mealPlanOutput');
   output.innerHTML = '';
 
   try {
@@ -757,6 +853,7 @@ async function generateFamilyPlan() {
     const plan = data.plan || data.error || 'Unable to generate plan.';
 
     output.innerHTML = `<div class="nb-ai-output nb-rendered-md">${renderMd(plan)}</div>`;
+    if ($('exportPdfBtn')) show($('exportPdfBtn'));
   } catch (err) {
     output.innerHTML = '<p class="text-danger">⚠️ Failed to generate family plan.</p>';
     console.error('Family plan error:', err);
@@ -797,6 +894,7 @@ function loadStateIntoUI() {
   if (p.gender) { ['p-gender', 'd-gender', 'bmi-gender'].forEach(id => { if ($(id)) $(id).value = p.gender; }); }
   if (p.weight) { ['p-weight', 'd-weight', 'bmi-weight'].forEach(id => { if ($(id)) $(id).value = p.weight; }); }
   if (p.height) { ['p-height', 'd-height', 'bmi-height'].forEach(id => { if ($(id)) $(id).value = p.height; }); }
+  if (p.target_weight) { ['p-target-weight'].forEach(id => { if ($(id)) $(id).value = p.target_weight; }); }
   if (p.goal) { ['p-goal', 'd-goal'].forEach(id => { if ($(id)) $(id).value = p.goal; }); }
   if (p.diet_type) { ['p-diet', 'd-diet', 'mp-diet'].forEach(id => { if ($(id)) $(id).value = p.diet_type; }); }
   if (p.health_conditions) { ['p-conditions', 'd-conditions'].forEach(id => { if ($(id)) $(id).value = p.health_conditions; }); }
@@ -914,7 +1012,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('New chat started');
   });
 
-  // ── Quick prompts (Event delegation for dynamic elements)
+  // ── Quick prompts & Dynamic buttons (Event delegation)
   document.body.addEventListener('click', (e) => {
     const chip = e.target.closest('.nb-chip[data-prompt]');
     if (chip) {
@@ -923,6 +1021,13 @@ document.addEventListener('DOMContentLoaded', () => {
       autoResize(input);
       switchTab('chat');
       sendChat(chip.dataset.prompt);
+      return;
+    }
+    
+    const addLogBtn = e.target.closest('.add-log-btn');
+    if (addLogBtn) {
+      addDailyLog(addLogBtn);
+      return;
     }
   });
 
@@ -932,20 +1037,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') logProgress();
   });
 
-  // ── Dashboard: Analyze Meal
+  // ── Unified Smart Food & Meal Analyzer
   $('analyzeMealBtn')?.addEventListener('click', analyzeMeal);
-  $('mealAnalyzerInput')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') analyzeMeal();
-  });
-  
-  // ── Dashboard: Food Database
   $('searchFoodBtn')?.addEventListener('click', searchFoodDb);
-  $('foodDbInput')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') searchFoodDb();
+  $('unifiedFoodInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') analyzeMeal();
   });
 
   // ── Meal Plan
   $('generateMealPlanBtn')?.addEventListener('click', generateMealPlan);
+  
+  $('exportPdfBtn')?.addEventListener('click', () => {
+    const element = $('mealPlanOutput');
+    const opt = {
+      margin:       1,
+      filename:     'NutriBot_Meal_Plan.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
+  });
 
   // ── BMI Calculator
   $('calcBmiBtn')?.addEventListener('click', calculateBMI);

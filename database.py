@@ -41,6 +41,17 @@ def init_db():
                 date TEXT
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS daily_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT,
+                food_name TEXT,
+                calories REAL,
+                protein REAL,
+                carbs REAL,
+                fats REAL
+            )
+        ''')
     conn.close()
 
 def create_session(title="New Chat"):
@@ -112,3 +123,26 @@ def get_progress():
     progress = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return progress
+
+def add_daily_log(food_name, calories, protein, carbs, fats, date=None):
+    if date is None:
+        date = datetime.now(timezone.utc).date().isoformat()
+    conn = get_db()
+    with conn:
+        conn.execute(
+            'INSERT INTO daily_logs (date, food_name, calories, protein, carbs, fats) VALUES (?, ?, ?, ?, ?, ?)',
+            (date, food_name, calories, protein, carbs, fats)
+        )
+    conn.close()
+
+def get_daily_logs(date=None):
+    if date is None:
+        date = datetime.now(timezone.utc).date().isoformat()
+    conn = get_db()
+    cursor = conn.execute(
+        'SELECT id, food_name, calories, protein, carbs, fats FROM daily_logs WHERE date = ? ORDER BY id ASC',
+        (date,)
+    )
+    logs = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return logs

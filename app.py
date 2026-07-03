@@ -467,6 +467,31 @@ def add_progress():
         logger.error(f"Error adding progress: {e}")
         return jsonify({"error": "Failed to add progress"}), 500
 
+@app.route("/api/daily-log", methods=["GET"])
+def get_daily_logs():
+    date = request.args.get('date')
+    logs = database.get_daily_logs(date)
+    return jsonify({"logs": logs})
+
+@app.route("/api/daily-log", methods=["POST"])
+def add_daily_log():
+    data = request.get_json(silent=True) or {}
+    food_name = data.get("food_name")
+    calories = data.get("calories", 0)
+    protein = data.get("protein", 0)
+    carbs = data.get("carbs", 0)
+    fats = data.get("fats", 0)
+    
+    if not food_name:
+        return jsonify({"error": "Food name is required."}), 400
+        
+    try:
+        database.add_daily_log(food_name, float(calories), float(protein), float(carbs), float(fats))
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error adding daily log: {e}")
+        return jsonify({"error": "Failed to add daily log"}), 500
+
 
 
 @app.route("/api/family-plan", methods=["POST"])

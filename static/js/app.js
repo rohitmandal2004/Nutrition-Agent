@@ -7,10 +7,11 @@
 
 // ── State ──────────────────────────────────────────────────────
 const State = {
-  chatHistory:   JSON.parse(localStorage.getItem('nb-chatHistory') || '[]'),
+  currentSessionId: null,
   userProfile:   JSON.parse(localStorage.getItem('nb-userProfile') || '{}'),
   familyMembers: JSON.parse(localStorage.getItem('nb-familyMembers') || '[]'),
   theme:         localStorage.getItem('nb-theme') || 'light',
+  progressChart: null,
 };
 
 // ── DOM Helpers ────────────────────────────────────────────────
@@ -71,6 +72,8 @@ function switchTab(tabName) {
   });
   const tab = $(`tab-${tabName}`);
   if (tab) tab.classList.add('active');
+  
+  if (tabName === 'dashboard') renderDashboard();
 }
 
 // ── Profile Helpers ────────────────────────────────────────────
@@ -94,17 +97,15 @@ function saveProfile() {
   State.userProfile = getProfile();
   localStorage.setItem('nb-userProfile', JSON.stringify(State.userProfile));
   
-  // Sync to dashboard and bmi tabs
+  // Sync to bmi tab and others
   const p = State.userProfile;
-  if (p.name) { ['d-name'].forEach(id => { if ($(id)) $(id).value = p.name; }); }
-  if (p.age) { ['d-age', 'bmi-age'].forEach(id => { if ($(id)) $(id).value = p.age; }); }
-  if (p.gender) { ['d-gender', 'bmi-gender'].forEach(id => { if ($(id)) $(id).value = p.gender; }); }
-  if (p.weight) { ['d-weight', 'bmi-weight'].forEach(id => { if ($(id)) $(id).value = p.weight; }); }
-  if (p.height) { ['d-height', 'bmi-height'].forEach(id => { if ($(id)) $(id).value = p.height; }); }
-  if (p.goal) { ['d-goal'].forEach(id => { if ($(id)) $(id).value = p.goal; }); }
-  if (p.diet_type) { ['d-diet', 'mp-diet'].forEach(id => { if ($(id)) $(id).value = p.diet_type; }); }
-  if (p.health_conditions) { ['d-conditions'].forEach(id => { if ($(id)) $(id).value = p.health_conditions; }); }
-  if (p.allergies) { ['d-allergies'].forEach(id => { if ($(id)) $(id).value = p.allergies; }); }
+  if (p.age) { ['bmi-age'].forEach(id => { if ($(id)) $(id).value = p.age; }); }
+  if (p.gender) { ['bmi-gender'].forEach(id => { if ($(id)) $(id).value = p.gender; }); }
+  if (p.weight) { ['bmi-weight'].forEach(id => { if ($(id)) $(id).value = p.weight; }); }
+  if (p.height) { ['bmi-height'].forEach(id => { if ($(id)) $(id).value = p.height; }); }
+  if (p.diet_type) { ['mp-diet'].forEach(id => { if ($(id)) $(id).value = p.diet_type; }); }
+  
+  if (typeof renderDashboard === 'function') renderDashboard();
   
   showToast('✅ Profile saved!');
 }
@@ -130,12 +131,162 @@ function appendMessage(role, content) {
   return wrap;
 }
 
+async function loadChatSessions() {
+  try {
+    const res = await fetch('/api/chats');
+    const data = await res.json();
+    const list = $('chatHistoryList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    if (data.sessions && data.sessions.length > 0) {
+      data.sessions.forEach(session => {
+        const item = document.createElement('div');
+        item.className = 'nb-chat-session-item' + (State.currentSessionId === session.id ? ' active' : '');
+        
+        const title = document.createElement('div');
+        title.className = 'nb-chat-session-title';
+        title.textContent = session.title || 'Chat';
+        
+        const delBtn = document.createElement('button');
+        delBtn.className = 'nb-chat-session-delete';
+        delBtn.innerHTML = '<i class="bi bi-trash3"></i>';
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteSession(session.id);
+        };
+        
+        item.appendChild(title);
+        item.appendChild(delBtn);
+        
+        item.onclick = () => loadSessionMessages(session.id);
+        list.appendChild(item);
+      });
+    } else {
+      list.innerHTML = '<div class="nb-muted text-center mt-3 p-2">No past chats</div>';
+    }
+  } catch (err) {
+    console.error('Failed to load chat sessions:', err);
+  }
+}
+
+async function createNewSession(title = 'New Chat') {
+  State.currentSessionId = null;
+  
+  // Clear chat window
+  const container = $('chatMessages');
+  container.innerHTML = `
+    <div class="nb-msg nb-msg-bot">
+      <div class="nb-msg-avatar">🥗</div>
+      <div class="nb-msg-bubble">
+        <p><strong>Namaste! I'm NutriBot 👋</strong></p>
+        <p>Your AI-powered family nutrition advisor, trained on Indian cuisine and global dietary guidelines.</p>
+        <p>I can help you with:</p>
+        <ul>
+          <li>🍱 Personalized meal plans</li>
+          <li>🔥 Calorie & macro analysis</li>
+          <li>🥗 Healthy food suggestions</li>
+          <li>👨‍👩‍👧‍👦 Family diet recommendations</li>
+          <li>📊 BMI & TDEE calculations</li>
+        </ul>
+        <p>Fill in your profile in the Profile tab for personalized advice, or just start chatting!</p>
+      </div>
+    </div>
+    
+    <div class="nb-quick-prompts mt-3" style="justify-content: center;">
+      <button class="nb-chip" data-prompt="What should I eat for breakfast today?">🍳 Breakfast ideas</button>
+      <button class="nb-chip" data-prompt="Give me a high protein vegetarian meal plan">💪 High protein plan</button>
+      <button class="nb-chip" data-prompt="What are the best Indian foods for weight loss?">⚖️ Weight loss foods</button>
+      <button class="nb-chip" data-prompt="Suggest healthy Indian snacks under 200 calories">🥜 Healthy snacks</button>
+    </div>
+  `;
+  
+  await loadChatSessions();
+}
+
+async function loadSessionMessages(sessionId) {
+  State.currentSessionId = sessionId;
+  await loadChatSessions(); // to update active state
+  
+  try {
+    const res = await fetch(`/api/chats/${sessionId}`);
+    const data = await res.json();
+    
+    const container = $('chatMessages');
+    container.innerHTML = ''; // clear current
+    
+    if (data.messages && data.messages.length > 0) {
+      data.messages.forEach(msg => {
+        appendMessage(msg.role, msg.content);
+      });
+    } else {
+      // Empty session state
+      container.innerHTML = `
+        <div class="nb-msg nb-msg-bot">
+          <div class="nb-msg-avatar">🥗</div>
+          <div class="nb-msg-bubble">
+            <p><strong>Namaste! I'm NutriBot 👋</strong></p>
+            <p>Your AI-powered family nutrition advisor, trained on Indian cuisine and global dietary guidelines.</p>
+            <p>I can help you with:</p>
+            <ul>
+              <li>🍱 Personalized meal plans</li>
+              <li>🔥 Calorie & macro analysis</li>
+              <li>🥗 Healthy food suggestions</li>
+              <li>👨‍👩‍👧‍👦 Family diet recommendations</li>
+              <li>📊 BMI & TDEE calculations</li>
+            </ul>
+            <p>Fill in your profile in the Profile tab for personalized advice, or just start chatting!</p>
+          </div>
+        </div>
+        
+        <div class="nb-quick-prompts mt-3" style="justify-content: center;">
+          <button class="nb-chip" data-prompt="What should I eat for breakfast today?">🍳 Breakfast ideas</button>
+          <button class="nb-chip" data-prompt="Give me a high protein vegetarian meal plan">💪 High protein plan</button>
+          <button class="nb-chip" data-prompt="What are the best Indian foods for weight loss?">⚖️ Weight loss foods</button>
+          <button class="nb-chip" data-prompt="Suggest healthy Indian snacks under 200 calories">🥜 Healthy snacks</button>
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.error('Failed to load messages:', err);
+  }
+}
+
+async function deleteSession(sessionId) {
+  if (!confirm('Are you sure you want to delete this chat?')) return;
+  
+  try {
+    await fetch(`/api/chats/${sessionId}`, { method: 'DELETE' });
+    if (State.currentSessionId === sessionId) {
+      await createNewSession();
+    } else {
+      await loadChatSessions();
+    }
+  } catch (err) {
+    console.error('Failed to delete session:', err);
+  }
+}
+
 async function sendChat(message) {
   if (!message.trim()) return;
 
+  if (!State.currentSessionId) {
+    try {
+      const res = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'New Chat' })
+      });
+      const data = await res.json();
+      State.currentSessionId = data.session_id;
+    } catch (err) {
+      console.error('Failed to create session:', err);
+      // Proceeding with null session_id will hit the backwards-compatibility logic in backend, 
+      // but it's better than failing completely
+    }
+  }
+
   appendMessage('user', message);
-  State.chatHistory.push({ role: 'user', content: message });
-  localStorage.setItem('nb-chatHistory', JSON.stringify(State.chatHistory));
 
   show($('typingIndicator'));
   $('chatInput').value = '';
@@ -148,7 +299,7 @@ async function sendChat(message) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         message: message,
-        history: State.chatHistory.slice(-10),
+        session_id: State.currentSessionId,
         profile: State.userProfile,
       }),
     });
@@ -157,8 +308,9 @@ async function sendChat(message) {
     const reply = data.reply || data.error || 'Something went wrong.';
 
     appendMessage('bot', reply);
-    State.chatHistory.push({ role: 'assistant', content: reply });
-    localStorage.setItem('nb-chatHistory', JSON.stringify(State.chatHistory));
+    
+    // Refresh sidebar to update titles
+    loadChatSessions();
   } catch (err) {
     appendMessage('bot', '⚠️ Network error. Please check your connection and try again.');
     console.error('Chat error:', err);
@@ -169,42 +321,164 @@ async function sendChat(message) {
   }
 }
 
-// ── Nutrition Plan ─────────────────────────────────────────────
-async function generateNutritionPlan() {
-  const profile = {
-    name:             $('d-name')?.value?.trim(),
-    age:              $('d-age')?.value,
-    gender:           $('d-gender')?.value,
-    weight:           $('d-weight')?.value,
-    height:           $('d-height')?.value,
-    goal:             $('d-goal')?.value,
-    diet_type:        $('d-diet')?.value,
-    activity_level:   $('d-activity')?.value,
-    cuisine:          $('d-cuisine')?.value,
-    health_conditions: $('d-conditions')?.value?.trim(),
-    allergies:        $('d-allergies')?.value?.trim(),
-  };
+// ── Dashboard Progress & Snapshot ──────────────────────────────
+async function renderDashboard() {
+  const p = State.userProfile;
+  
+  // Update Snapshot UI
+  if ($('dashName')) $('dashName').textContent = p.name || 'Guest';
+  if ($('dashMeta')) {
+    const ageText = p.age ? `${p.age} years old` : 'Age unknown';
+    const genderText = p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1)) : '';
+    $('dashMeta').textContent = genderText ? `${genderText}, ${ageText}` : ageText;
+  }
+  if ($('dashGoal')) $('dashGoal').textContent = p.goal || '--';
+  
+  // We'll update current weight and BMI from the DB later if available
+  if ($('dashWeight')) $('dashWeight').textContent = p.weight ? `${p.weight} kg` : '-- kg';
+  
+  let currentBmi = '--';
+  if (p.weight && p.height) {
+    const hm = parseFloat(p.height) / 100;
+    currentBmi = (parseFloat(p.weight) / (hm * hm)).toFixed(1);
+    if ($('dashBmi')) $('dashBmi').textContent = currentBmi;
+  }
+  
+  await fetchAndRenderProgress();
+}
 
-  showLoading('Generating your personalized nutrition plan...');
-  const output = $('nutritionPlanOutput');
-  output.innerHTML = '';
-
+async function fetchAndRenderProgress() {
   try {
-    const res = await fetch('/api/nutrition-plan', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(profile),
-    });
-
+    const res = await fetch('/api/progress');
     const data = await res.json();
-    const plan = data.plan || data.error || 'Unable to generate plan.';
-
-    output.innerHTML = `<div class="nb-ai-output nb-rendered-md">${renderMd(plan)}</div>`;
+    const history = data.progress || [];
+    
+    // Update the snapshot with latest weight and BMI if history exists
+    if (history.length > 0) {
+      const latest = history[history.length - 1];
+      if ($('dashWeight')) $('dashWeight').textContent = `${latest.weight} kg`;
+      if ($('dashBmi')) $('dashBmi').textContent = latest.bmi.toFixed(1);
+    }
+    
+    renderProgressChart(history);
   } catch (err) {
-    output.innerHTML = '<p class="text-danger">⚠️ Failed to generate plan. Check your credentials.</p>';
-    console.error('Plan error:', err);
-  } finally {
-    hideLoading();
+    console.error('Failed to fetch progress:', err);
+  }
+}
+
+function renderProgressChart(history) {
+  const canvas = $('progressChart');
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  
+  if (State.progressChart) {
+    State.progressChart.destroy();
+  }
+  
+  const labels = history.map(entry => {
+    // Format date nicely (e.g. "Jul 3")
+    const d = new Date(entry.date);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
+  const weights = history.map(entry => entry.weight);
+  const bmis = history.map(entry => entry.bmi);
+  
+  State.progressChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels.length ? labels : ['No Data'],
+      datasets: [
+        {
+          label: 'Weight (kg)',
+          data: weights.length ? weights : [0],
+          borderColor: '#ff6b35', // Primary brand color
+          backgroundColor: 'rgba(255, 107, 53, 0.1)',
+          yAxisID: 'yWeight',
+          tension: 0.3,
+          fill: true
+        },
+        {
+          label: 'BMI',
+          data: bmis.length ? bmis : [0],
+          borderColor: '#4d8076', // Muted green/teal
+          backgroundColor: 'rgba(77, 128, 118, 0.1)',
+          yAxisID: 'yBmi',
+          tension: 0.3,
+          fill: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      scales: {
+        yWeight: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: { display: true, text: 'Weight (kg)' }
+        },
+        yBmi: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: { display: true, text: 'BMI' },
+          grid: { drawOnChartArea: false }
+        }
+      }
+    }
+  });
+}
+
+async function logProgress() {
+  const weightInput = $('logWeightInput');
+  const weight = parseFloat(weightInput?.value);
+  
+  if (!weight || isNaN(weight)) {
+    showToast('Please enter a valid weight.');
+    return;
+  }
+  
+  const p = State.userProfile;
+  if (!p.height) {
+    showToast('Please set your height in the Profile tab first to calculate BMI.');
+    return;
+  }
+  
+  // Calculate new BMI
+  const hm = parseFloat(p.height) / 100;
+  const bmi = (weight / (hm * hm)).toFixed(1);
+  
+  try {
+    const res = await fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weight: weight, bmi: bmi }),
+    });
+    
+    if (res.ok) {
+      showToast('Progress logged successfully!');
+      weightInput.value = '';
+      
+      // Update profile locally to reflect new weight
+      p.weight = weight;
+      localStorage.setItem('nb-userProfile', JSON.stringify(p));
+      if ($('p-weight')) $('p-weight').value = weight;
+      if ($('bmi-weight')) $('bmi-weight').value = weight;
+      
+      // Re-render dashboard
+      await renderDashboard();
+    } else {
+      throw new Error('Server error');
+    }
+  } catch (err) {
+    console.error('Failed to log progress:', err);
+    showToast('⚠️ Failed to log progress.');
   }
 }
 
@@ -361,6 +635,59 @@ async function calculateBMI() {
   }
 }
 
+// ── Indian Food Database ───────────────────────────────────────
+async function searchFoodDb() {
+  const query = $('foodDbInput')?.value?.trim();
+  const output = $('foodDbOutput');
+  
+  if (!query) {
+    showToast('Please enter a food name to search.');
+    return;
+  }
+  
+  showLoading('Searching food database...');
+  output.innerHTML = '';
+  show(output);
+  
+  try {
+    const res = await fetch('/api/search-food', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    const data = await res.json();
+    
+    if (data.results && data.results.length > 0) {
+      let html = '<div class="d-flex flex-column gap-2">';
+      data.results.forEach(item => {
+        html += `
+          <div class="nb-card" style="padding: 0.75rem; border-color: var(--nb-muted);">
+            <strong>${escHtml(item['Dish Name'] || 'Unknown')}</strong>
+            <div style="font-size: 0.85rem; color: var(--nb-fg); margin-top: 0.25rem;">
+              <span class="badge bg-danger" style="margin-right:0.25rem;">${item['Calories (kcal)']} kcal</span>
+              <span class="badge bg-success" style="margin-right:0.25rem;">P: ${item['Protein (g)']}g</span>
+              <span class="badge bg-info text-dark" style="margin-right:0.25rem;">C: ${item['Carbohydrates (g)']}g</span>
+              <span class="badge bg-warning text-dark">F: ${item['Fats (g)']}g</span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--nb-muted); margin-top: 0.25rem;">
+              Fibre: ${item['Fibre (g)']}g | Sugar: ${item['Free Sugar (g)']}g | Sodium: ${item['Sodium (mg)']}mg
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      output.innerHTML = html;
+    } else {
+      output.innerHTML = '<div class="text-center nb-muted p-3">No matching foods found in the database.</div>';
+    }
+  } catch (err) {
+    output.innerHTML = '<p class="text-danger">⚠️ Failed to search food database.</p>';
+    console.error('Food DB search error:', err);
+  } finally {
+    hideLoading();
+  }
+}
+
 // ── Family Planner ─────────────────────────────────────────────
 function renderFamilyList() {
   const list   = $('familyMembersList');
@@ -474,13 +801,6 @@ function loadStateIntoUI() {
   if (p.diet_type) { ['p-diet', 'd-diet', 'mp-diet'].forEach(id => { if ($(id)) $(id).value = p.diet_type; }); }
   if (p.health_conditions) { ['p-conditions', 'd-conditions'].forEach(id => { if ($(id)) $(id).value = p.health_conditions; }); }
   if (p.allergies) { ['p-allergies', 'd-allergies'].forEach(id => { if ($(id)) $(id).value = p.allergies; }); }
-
-  if (State.chatHistory && State.chatHistory.length > 0) {
-    State.chatHistory.forEach(msg => {
-      const uiRole = msg.role === 'user' ? 'user' : 'bot';
-      appendMessage(uiRole, msg.content);
-    });
-  }
 }
 
 // ── Event Listeners ────────────────────────────────────────────
@@ -494,6 +814,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load state into UI
   loadStateIntoUI();
+
+  // Load chat sessions and initialize chat window
+  loadChatSessions().then(async () => {
+    try {
+      const res = await fetch('/api/chats');
+      const data = await res.json();
+      if (data.sessions && data.sessions.length > 0) {
+        // Load the most recent session
+        loadSessionMessages(data.sessions[0].id);
+      } else {
+        createNewSession();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  });
+  
+  // New Chat button
+  $('newChatBtn')?.addEventListener('click', () => createNewSession());
 
   // ── Onboarding Check
   const p = State.userProfile;
@@ -571,34 +910,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Clear chat
   $('clearChatBtn')?.addEventListener('click', () => {
-    const messages = $('chatMessages');
-    // Keep only the welcome message
-    while (messages.children.length > 1) {
-      messages.removeChild(messages.lastChild);
-    }
-    State.chatHistory = [];
-    localStorage.removeItem('nb-chatHistory');
-    showToast('Chat cleared');
+    createNewSession();
+    showToast('New chat started');
   });
 
-  // ── Quick prompts
-  document.querySelectorAll('.nb-chip[data-prompt]').forEach(chip => {
-    chip.addEventListener('click', () => {
+  // ── Quick prompts (Event delegation for dynamic elements)
+  document.body.addEventListener('click', (e) => {
+    const chip = e.target.closest('.nb-chip[data-prompt]');
+    if (chip) {
       const input = $('chatInput');
       input.value = chip.dataset.prompt;
       autoResize(input);
       switchTab('chat');
       sendChat(chip.dataset.prompt);
-    });
+    }
   });
 
-  // ── Dashboard: Generate Plan
-  $('generatePlanBtn')?.addEventListener('click', generateNutritionPlan);
+  // ── Dashboard
+  $('logWeightBtn')?.addEventListener('click', logProgress);
+  $('logWeightInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') logProgress();
+  });
 
   // ── Dashboard: Analyze Meal
   $('analyzeMealBtn')?.addEventListener('click', analyzeMeal);
   $('mealAnalyzerInput')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') analyzeMeal();
+  });
+  
+  // ── Dashboard: Food Database
+  $('searchFoodBtn')?.addEventListener('click', searchFoodDb);
+  $('foodDbInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchFoodDb();
   });
 
   // ── Meal Plan
@@ -646,6 +989,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Render initial (empty) family list
   renderFamilyList();
+  
+  // Render Dashboard
+  renderDashboard();
 });
 
 function clearMemberForm() {

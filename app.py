@@ -30,6 +30,8 @@ except ImportError:
     _WxAuthError = Exception  # fallback if SDK restructures
 
 from agent_config import AGENT_INSTRUCTIONS, MODEL_CONFIG, APP_META
+import database
+import data_utils
 
 # ─── Load environment variables ───────────────────────────────────────────────
 load_dotenv()
@@ -45,6 +47,9 @@ logger = logging.getLogger("nutribot")
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "nutribot-secret-fallback-key")
 CORS(app)
+
+# Initialize Database
+database.init_db()
 
 # ─── Watsonx.ai client initialization ────────────────────────────────────────
 def _init_watsonx_model():
@@ -120,6 +125,7 @@ def _mock_response(prompt: str) -> str:
 def build_chat_prompt(user_message: str, chat_history: list, user_profile: dict) -> str:
     profile_text = _format_profile(user_profile)
     history_text = _format_history(chat_history)
+    db_context = data_utils.get_context_for_llm(user_message)
 
     return f"""<|system|>
 {AGENT_INSTRUCTIONS}
@@ -128,6 +134,7 @@ def build_chat_prompt(user_message: str, chat_history: list, user_profile: dict)
 <|end|>
 {history_text}
 <|user|>
+{db_context}
 {user_message}
 <|assistant|>
 """
@@ -198,6 +205,7 @@ Include approximate calorie count for each meal.
 
 
 def build_meal_analysis_prompt(meal_description: str) -> str:
+    db_context = data_utils.get_context_for_llm(meal_description)
     return f"""<|system|>
 {AGENT_INSTRUCTIONS}
 <|end|>
@@ -206,6 +214,7 @@ Analyze the nutritional value of the following meal:
 
 "{meal_description}"
 
+{db_context}
 Provide:
 1. Estimated calorie count
 2. Macro breakdown (protein, carbs, fat in grams)
@@ -328,18 +337,51 @@ def health_check():
     })
 
 
+@app.route("/api/chats", methods=["GET"])
+def get_chats():
+    sessions = database.get_all_sessions()
+    return jsonify({"sessions": sessions})
+
+@app.route("/api/chats", methods=["POST"])
+def create_chat():
+    data = request.get_json(silent=True) or {}
+    title = data.get("title", "New Chat")
+    session_id = database.create_session(title)
+    return jsonify({"session_id": session_id})
+
+@app.route("/api/chats/<session_id>", methods=["GET"])
+def get_chat(session_id):
+    messages = database.get_session_messages(session_id)
+    return jsonify({"messages": messages})
+
+@app.route("/api/chats/<session_id>", methods=["DELETE"])
+def delete_chat(session_id):
+    database.delete_session(session_id)
+    return jsonify({"status": "deleted"})
+
 @app.route("/api/chat", methods=["POST"])
 def chat():
     data = request.get_json(silent=True) or {}
     user_message = data.get("message", "").strip()
+    session_id = data.get("session_id")
+    # For backward compatibility or if not provided, just use the provided history
     chat_history = data.get("history", [])
     user_profile = data.get("profile", {})
 
     if not user_message:
         return jsonify({"error": "Message is required."}), 400
 
+    if session_id:
+        database.add_message(session_id, "user", user_message)
+        # Fetch actual history from DB for prompt building
+        db_messages = database.get_session_messages(session_id)
+        chat_history = [{"role": msg["role"], "content": msg["content"]} for msg in db_messages[:-1]] # exclude current user message
+
     prompt   = build_chat_prompt(user_message, chat_history, user_profile)
     response = call_watsonx(prompt)
+
+    if session_id:
+        database.add_message(session_id, "assistant", response)
 
     return jsonify({
         "reply":     response,
@@ -389,6 +431,42 @@ def analyze_meal():
         "analysis":  response,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
+
+
+@app.route("/api/search-food", methods=["POST"])
+def search_food_api():
+    data = request.get_json(silent=True) or {}
+    query = data.get("query", "").strip()
+    
+    if not query:
+        return jsonify({"results": []})
+        
+    results = data_utils.search_food(query, limit=5)
+    return jsonify({"results": results})
+
+
+@app.route("/api/progress", methods=["GET"])
+def get_progress():
+    progress = database.get_progress()
+    return jsonify({"progress": progress})
+
+
+@app.route("/api/progress", methods=["POST"])
+def add_progress():
+    data = request.get_json(silent=True) or {}
+    weight = data.get("weight")
+    bmi = data.get("bmi")
+    
+    if not weight or not bmi:
+        return jsonify({"error": "Weight and BMI are required."}), 400
+        
+    try:
+        database.add_progress(float(weight), float(bmi))
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Error adding progress: {e}")
+        return jsonify({"error": "Failed to add progress"}), 500
+
 
 
 @app.route("/api/family-plan", methods=["POST"])

@@ -7,9 +7,9 @@
 
 // ── State ──────────────────────────────────────────────────────
 const State = {
-  chatHistory:   [],
-  userProfile:   {},
-  familyMembers: [],
+  chatHistory:   JSON.parse(localStorage.getItem('nb-chatHistory') || '[]'),
+  userProfile:   JSON.parse(localStorage.getItem('nb-userProfile') || '{}'),
+  familyMembers: JSON.parse(localStorage.getItem('nb-familyMembers') || '[]'),
   theme:         localStorage.getItem('nb-theme') || 'light',
 };
 
@@ -92,6 +92,20 @@ function getProfile() {
 
 function saveProfile() {
   State.userProfile = getProfile();
+  localStorage.setItem('nb-userProfile', JSON.stringify(State.userProfile));
+  
+  // Sync to dashboard and bmi tabs
+  const p = State.userProfile;
+  if (p.name) { ['d-name'].forEach(id => { if ($(id)) $(id).value = p.name; }); }
+  if (p.age) { ['d-age', 'bmi-age'].forEach(id => { if ($(id)) $(id).value = p.age; }); }
+  if (p.gender) { ['d-gender', 'bmi-gender'].forEach(id => { if ($(id)) $(id).value = p.gender; }); }
+  if (p.weight) { ['d-weight', 'bmi-weight'].forEach(id => { if ($(id)) $(id).value = p.weight; }); }
+  if (p.height) { ['d-height', 'bmi-height'].forEach(id => { if ($(id)) $(id).value = p.height; }); }
+  if (p.goal) { ['d-goal'].forEach(id => { if ($(id)) $(id).value = p.goal; }); }
+  if (p.diet_type) { ['d-diet', 'mp-diet'].forEach(id => { if ($(id)) $(id).value = p.diet_type; }); }
+  if (p.health_conditions) { ['d-conditions'].forEach(id => { if ($(id)) $(id).value = p.health_conditions; }); }
+  if (p.allergies) { ['d-allergies'].forEach(id => { if ($(id)) $(id).value = p.allergies; }); }
+  
   showToast('✅ Profile saved!');
 }
 
@@ -121,6 +135,7 @@ async function sendChat(message) {
 
   appendMessage('user', message);
   State.chatHistory.push({ role: 'user', content: message });
+  localStorage.setItem('nb-chatHistory', JSON.stringify(State.chatHistory));
 
   show($('typingIndicator'));
   $('chatInput').value = '';
@@ -143,6 +158,7 @@ async function sendChat(message) {
 
     appendMessage('bot', reply);
     State.chatHistory.push({ role: 'assistant', content: reply });
+    localStorage.setItem('nb-chatHistory', JSON.stringify(State.chatHistory));
   } catch (err) {
     appendMessage('bot', '⚠️ Network error. Please check your connection and try again.');
     console.error('Chat error:', err);
@@ -387,6 +403,7 @@ function renderFamilyList() {
   list.querySelectorAll('.nb-member-remove').forEach(btn => {
     btn.addEventListener('click', () => {
       State.familyMembers.splice(parseInt(btn.dataset.idx), 1);
+      localStorage.setItem('nb-familyMembers', JSON.stringify(State.familyMembers));
       renderFamilyList();
     });
   });
@@ -445,6 +462,27 @@ async function checkHealth() {
   } catch (e) { /* silent */ }
 }
 
+// ── Load State into UI ─────────────────────────────────────────
+function loadStateIntoUI() {
+  const p = State.userProfile;
+  if (p.name) { ['p-name', 'd-name'].forEach(id => { if ($(id)) $(id).value = p.name; }); }
+  if (p.age) { ['p-age', 'd-age', 'bmi-age'].forEach(id => { if ($(id)) $(id).value = p.age; }); }
+  if (p.gender) { ['p-gender', 'd-gender', 'bmi-gender'].forEach(id => { if ($(id)) $(id).value = p.gender; }); }
+  if (p.weight) { ['p-weight', 'd-weight', 'bmi-weight'].forEach(id => { if ($(id)) $(id).value = p.weight; }); }
+  if (p.height) { ['p-height', 'd-height', 'bmi-height'].forEach(id => { if ($(id)) $(id).value = p.height; }); }
+  if (p.goal) { ['p-goal', 'd-goal'].forEach(id => { if ($(id)) $(id).value = p.goal; }); }
+  if (p.diet_type) { ['p-diet', 'd-diet', 'mp-diet'].forEach(id => { if ($(id)) $(id).value = p.diet_type; }); }
+  if (p.health_conditions) { ['p-conditions', 'd-conditions'].forEach(id => { if ($(id)) $(id).value = p.health_conditions; }); }
+  if (p.allergies) { ['p-allergies', 'd-allergies'].forEach(id => { if ($(id)) $(id).value = p.allergies; }); }
+
+  if (State.chatHistory && State.chatHistory.length > 0) {
+    State.chatHistory.forEach(msg => {
+      const uiRole = msg.role === 'user' ? 'user' : 'bot';
+      appendMessage(uiRole, msg.content);
+    });
+  }
+}
+
 // ── Event Listeners ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -453,6 +491,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Health check
   checkHealth();
+
+  // Load state into UI
+  loadStateIntoUI();
+
+  // ── Onboarding Check
+  const p = State.userProfile;
+  if (!p.name || !p.age || !p.weight || !p.height) {
+    show($('onboardingModal'));
+  }
+
+  $('saveOnboardingBtn')?.addEventListener('click', () => {
+    const obName = $('ob-name').value.trim();
+    const obAge = $('ob-age').value;
+    const obGender = $('ob-gender').value;
+    const obWeight = $('ob-weight').value;
+    const obHeight = $('ob-height').value;
+    
+    if (!obName || !obAge || !obGender || !obWeight || !obHeight) {
+      showToast('⚠️ Please fill out all mandatory fields (*).');
+      return;
+    }
+
+    State.userProfile = {
+      name: obName,
+      age: obAge,
+      gender: obGender,
+      weight: obWeight,
+      height: obHeight,
+      goal: $('ob-goal').value,
+      diet_type: $('ob-diet').value,
+      health_conditions: $('ob-conditions').value.trim(),
+      allergies: $('ob-allergies').value.trim(),
+      cuisine: 'Indian',
+      activity_level: 'moderate'
+    };
+    
+    localStorage.setItem('nb-userProfile', JSON.stringify(State.userProfile));
+    loadStateIntoUI();
+    
+    // Also update the sidebar form specifically since loadStateIntoUI maps to 'p-*' prefixed inputs
+    ['name', 'age', 'gender', 'weight', 'height', 'goal', 'diet_type', 'health_conditions', 'allergies'].forEach(key => {
+      const el = $(`p-${key === 'diet_type' ? 'diet' : key === 'health_conditions' ? 'conditions' : key}`);
+      if (el) el.value = State.userProfile[key];
+    });
+
+    hide($('onboardingModal'));
+    showToast('✅ Welcome to NutriBot!');
+  });
 
   // ── Theme toggle
   $('themeToggle')?.addEventListener('click', () => {
@@ -464,11 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  // ── Mobile menu btn (also acts as tab toggle)
-  $('mobileMenuBtn')?.addEventListener('click', () => {
-    const nav = $('mobileNav');
-    nav.style.display = nav.style.display === 'none' ? 'flex' : 'none';
-  });
+  // ── (Mobile menu btn listener removed to make bottom nav always visible) ──
 
   // ── Save profile
   $('saveProfileBtn')?.addEventListener('click', saveProfile);
@@ -495,6 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
       messages.removeChild(messages.lastChild);
     }
     State.chatHistory = [];
+    localStorage.removeItem('nb-chatHistory');
     showToast('Chat cleared');
   });
 
@@ -551,6 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
       goal:       $('fm-goal')?.value || 'healthy eating',
       conditions: $('fm-conditions')?.value?.trim() || 'none',
     });
+    localStorage.setItem('nb-familyMembers', JSON.stringify(State.familyMembers));
 
     renderFamilyList();
     hide($('addMemberForm'));

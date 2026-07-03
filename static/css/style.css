@@ -158,37 +158,45 @@ body {
 
 .nb-icon-btn:hover { background: var(--nb-accent); border-color: var(--nb-accent); }
 
-/* ── Mobile Nav ───────────────────────────────────────────────── */
-.nb-mobile-nav {
-  background:    var(--nb-nav-bg);
-  border-bottom: 3px solid var(--nb-fg);
-  display:       flex;
-  overflow-x:    auto;
-  padding:       0.5rem;
-  gap:           0.25rem;
+/* ── Mobile Nav (Instagram-style fixed bottom) ────────────────── */
+@media (max-width: 768px) {
+  .nb-mobile-nav {
+    display:         flex;
+    position:        fixed;
+    bottom:          0;
+    left:            0;
+    right:           0;
+    background:      var(--nb-nav-bg);
+    border-top:      3px solid var(--nb-accent);
+    z-index:         1000;
+    justify-content: space-around;
+    padding:         0.5rem 0;
+  }
 }
 
 .nb-mobile-nav-btn {
   background:    transparent;
-  border:        2px solid rgba(255,255,255,0.2);
-  color:         rgba(255,255,255,0.7);
-  padding:       6px 12px;
-  border-radius: var(--nb-radius);
+  border:        none;
+  color:         rgba(255,255,255,0.6);
+  padding:       4px 0;
   font-family:   var(--nb-font-body);
-  font-size:     0.75rem;
+  font-size:     0.7rem;
   font-weight:   600;
   cursor:        pointer;
   display:       flex;
   flex-direction: column;
   align-items:   center;
   gap:           2px;
-  white-space:   nowrap;
+  width:         20%; /* To ensure even spacing */
   transition:    all var(--nb-transition);
 }
 
+.nb-mobile-nav-btn i {
+  font-size:     1.35rem;
+}
+
 .nb-mobile-nav-btn.active, .nb-mobile-nav-btn:hover {
-  background:  var(--nb-accent);
-  color:       #fff;
+  color:       var(--nb-accent);
 }
 
 /* ── Main & Tabs ──────────────────────────────────────────────── */
@@ -308,15 +316,14 @@ body {
 /* ── Chat Layout ──────────────────────────────────────────────── */
 .nb-chat-layout {
   display:   grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 1fr;
   gap:       1.5rem;
   height:    calc(100vh - 120px);
   min-height: 550px;
 }
 
 @media (max-width: 900px) {
-  .nb-chat-layout { grid-template-columns: 1fr; height: auto; }
-  .nb-sidebar { display: none; }
+  .nb-chat-layout { height: auto; }
 }
 
 .nb-sidebar { overflow-y: auto; padding-right: 2px; }
@@ -722,11 +729,12 @@ body {
 
 /* ── Responsive ───────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .nb-main { padding: 1rem 0.75rem 5rem; }
+  .nb-main { padding: 1rem 0.75rem 80px; }
   .nb-form-row { flex-direction: column; }
   .nb-bmi-display { flex-direction: column; text-align: center; }
   .nb-msg { max-width: 95%; }
   .nb-page-header h1 { font-size: 1.5rem; }
+  .nb-chat-layout { height: calc(100dvh - 160px); }
 }
 
 @media (max-width: 480px) {
@@ -751,3 +759,5 @@ body {
   border-radius: 3px;
 }
 .nb-rendered-md hr { border: none; border-top: 2px solid var(--nb-fg); margin: 0.75rem 0; }
+
+.nb-rendered-md img { max-width: 100%; height: auto; border-radius: var(--nb-radius); margin: 0.5rem 0; box-shadow: var(--nb-shadow); border: 2px solid var(--nb-fg); }

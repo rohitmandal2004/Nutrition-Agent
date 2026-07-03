@@ -239,6 +239,9 @@ async function loadChatSessions() {
 async function createNewSession(title = 'New Chat') {
   State.currentSessionId = null;
   
+  // Close mobile sidebar if open
+  $('chatSidebar')?.classList.remove('open');
+  
   // Clear chat window
   const container = $('chatMessages');
   container.innerHTML = `
@@ -273,6 +276,9 @@ async function createNewSession(title = 'New Chat') {
 async function loadSessionMessages(sessionId) {
   State.currentSessionId = sessionId;
   await loadChatSessions(); // to update active state
+  
+  // Close mobile sidebar if open
+  $('chatSidebar')?.classList.remove('open');
   
   try {
     const res = await fetch(`/api/chats/${sessionId}`);
@@ -412,6 +418,13 @@ async function renderDashboard() {
   
   await fetchAndRenderDailyLogs();
   await fetchAndRenderProgress();
+  
+  if ($('dashWaterCount') && State.userProfile) {
+    const wc = State.userProfile.waterCount || 0;
+    $('dashWaterCount').textContent = `${wc} / 8 Glasses`;
+  }
+  
+  if (typeof updateDashboardCalculations === 'function') updateDashboardCalculations();
 }
 
 async function fetchAndRenderDailyLogs() {
@@ -1009,15 +1022,7 @@ async function checkHealth() {
 }
 
 // ── Dashboard Rendering ─────────────────────────────────────────
-async function renderDashboard() {
-  if (typeof updateDashboardCalculations === 'function') updateDashboardCalculations();
-  if (typeof fetchAndRenderProgress === 'function') await fetchAndRenderProgress();
-  
-  if ($('dashWaterCount') && State.userProfile) {
-    const wc = State.userProfile.waterCount || 0;
-    $('dashWaterCount').textContent = `${wc} / 8 Glasses`;
-  }
-}
+// (Merged with earlier renderDashboard declaration)
 
 // ── Load State into UI ─────────────────────────────────────────
 function loadStateIntoUI() {
@@ -1076,6 +1081,11 @@ function updateDashboardCalculations() {
   if ($('p-display-name')) $('p-display-name').textContent = p.name || 'User';
   if ($('p-display-age')) $('p-display-age').textContent = p.age || '--';
   if ($('p-display-gender')) $('p-display-gender').textContent = p.gender || '--';
+  
+  // Dashboard User Snapshot
+  if ($('dashName')) $('dashName').textContent = p.name || '--';
+  if ($('dashMeta')) $('dashMeta').textContent = `${p.gender || '--'}, ${p.age || '--'} years old`;
+  if ($('dashGoal')) $('dashGoal').textContent = p.goal || '--';
   
   // Health Score Simulation (just a visual representation)
   let score = 70;
@@ -1283,6 +1293,15 @@ document.addEventListener('DOMContentLoaded', () => {
   ['bmi-weight', 'bmi-height', 'bmi-age'].forEach(id => {
     $(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') calculateBMI(); });
   });
+
+  // Mobile Chat Sidebar
+  $('mobileHistoryToggle')?.addEventListener('click', () => {
+    $('chatSidebar')?.classList.add('open');
+  });
+  $('closeSidebarBtn')?.addEventListener('click', () => {
+    $('chatSidebar')?.classList.remove('open');
+  });
+
 
   // ── Family: Add Member Form toggle
   $('addMemberBtn')?.addEventListener('click', () => {

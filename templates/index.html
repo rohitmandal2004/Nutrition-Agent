@@ -49,7 +49,7 @@
 <!-- Mobile Nav -->
 <div class="nb-mobile-nav d-md-none" id="mobileNav">
   <button class="nb-mobile-nav-btn active" data-tab="dashboard"><i class="bi bi-speedometer2"></i><span>Dash</span></button>
-  <button class="nb-mobile-nav-btn" data-tab="chat"><i class="bi bi-house-door-fill"></i><span>Chat</span></button>
+  <button class="nb-mobile-nav-btn" data-tab="chat"><i class="bi bi-chat-dots-fill"></i><span>Chat</span></button>
   <button class="nb-mobile-nav-btn" data-tab="mealplan"><i class="bi bi-calendar-check"></i><span>Meals</span></button>
   <button class="nb-mobile-nav-btn" data-tab="bmi"><i class="bi bi-plus-square"></i><span>BMI</span></button>
   <button class="nb-mobile-nav-btn" data-tab="profile"><i class="bi bi-person-circle"></i><span>Profile</span></button>
@@ -167,9 +167,14 @@
       
       <!-- Chat History Sidebar -->
       <div class="nb-chat-sidebar" id="chatSidebar">
-        <button class="nb-btn nb-btn-primary w-100 mb-3" id="newChatBtn">
-          <i class="bi bi-plus-lg"></i> New Chat
-        </button>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <button class="nb-btn nb-btn-primary flex-grow-1" id="newChatBtn">
+            <i class="bi bi-plus-lg"></i> New Chat
+          </button>
+          <button class="nb-btn nb-btn-secondary ms-2 d-lg-none" id="closeSidebarBtn">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
         <div class="nb-chat-history-list" id="chatHistoryList">
           <!-- Chat items go here -->
         </div>
@@ -177,6 +182,12 @@
 
       <!-- Chat Window -->
       <div class="nb-chat-container">
+        <!-- Mobile Chat Header -->
+        <div class="nb-mobile-chat-header">
+          <span class="fw-bold"><i class="bi bi-robot"></i> NutriBot</span>
+          <button class="nb-btn nb-btn-sm nb-btn-secondary" id="mobileHistoryToggle"><i class="bi bi-clock-history"></i> History</button>
+        </div>
+        
         <div class="nb-chat-messages" id="chatMessages">
           <!-- Welcome message -->
           <div class="nb-msg nb-msg-bot">

@@ -23,6 +23,10 @@ function hide(el) { if (el) el.style.display = 'none'; }
 
 // ── Markdown Renderer ──────────────────────────────────────────
 function renderMd(text) {
+  if (!text) return '';
+  // Sanitize text: prevent markdown strikethroughs by removing tildes (which the AI sometimes uses for "approx")
+  text = text.replace(/~/g, '');
+  
   if (typeof marked !== 'undefined') {
     return marked.parse(text, { breaks: true, gfm: true });
   }
@@ -74,6 +78,7 @@ function switchTab(tabName) {
   if (tab) tab.classList.add('active');
   
   if (tabName === 'dashboard') renderDashboard();
+  if (tabName === 'chat') createNewSession();
 }
 
 // ── Profile Helpers ────────────────────────────────────────────
@@ -1120,14 +1125,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load chat sessions and initialize chat window
   loadChatSessions().then(async () => {
     try {
-      const res = await fetch('/api/chats');
-      const data = await res.json();
-      if (data.sessions && data.sessions.length > 0) {
-        // Load the most recent session
-        loadSessionMessages(data.sessions[0].id);
-      } else {
-        createNewSession();
-      }
+      // Always start a new chat when opening the site, rather than loading the past one
+      createNewSession();
     } catch (err) {
       console.error(err);
     }

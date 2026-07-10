@@ -170,7 +170,7 @@ Generate a complete, personalized 7-day nutrition plan for:
 
 Include:
 1. Daily calorie target and macro breakdown (protein/carbs/fat in grams)
-2. A sample one-day detailed meal plan with timings and approximate calories
+2. A sample one-day detailed meal plan using a point-wise bulleted format (e.g., Breakfast, Lunch, Dinner as headings with bullet points for foods and amounts)
 3. 5 key nutrition tips personalized to their goal
 4. Foods to eat more of and foods to limit
 5. A motivating closing message
@@ -198,8 +198,23 @@ Create a {days}-day meal plan with {meals} meals per day.
 - Health goal: {goal}
 - Exclude these foods: {exclusions}
 
-Format each day clearly with breakfast, lunch, dinner (and snacks if applicable).
-Include approximate calorie count for each meal.
+IMPORTANT FORMATTING RULES:
+Format each day clearly using a concise, point-wise bulleted list exactly like this structure:
+Day 1
+
+Breakfast (8 AM)
+- Item 1 (amount)
+- Item 2 (amount)
+
+Snack
+- Item 1 (amount)
+
+Lunch (1 PM)
+- Item 1 (amount)
+- Item 2 (amount)
+
+Include the approximate calorie count for each meal in parentheses if possible. Keep descriptions short and avoid long paragraphs.
+CRITICAL: Do NOT use the tilde symbol (~) anywhere in your response (e.g., use 'approx.' instead of '~').
 <|assistant|>
 """
 
@@ -242,7 +257,8 @@ Create a unified family nutrition plan for the following family members:
 {members_text}
 
 Generate:
-1. A shared family meal plan that works for everyone
+1. A shared family meal plan that works for everyone, formatted as a point-wise bulleted list for each meal
+
 2. Individual modifications needed for each member
 3. Practical shopping list highlights
 4. Tips for cooking one meal that satisfies all dietary needs

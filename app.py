@@ -268,7 +268,9 @@ CRITICAL: Do NOT use the tilde symbol (~) anywhere in your response.
 
 def build_family_plan_prompt(family_members: list) -> str:
     members_text = "\n".join(
-        f"  - {m.get('name', 'Member')}: Age {m.get('age', '?')}, "
+        f"  - {m.get('name', 'Member')} " + 
+        (f"(Relation: {m['relation']}): " if m.get('relation') else ": ") +
+        f"Age {m.get('age', '?')}, "
         f"Gender {m.get('gender', '?')}, Goal: {m.get('goal', 'healthy eating')}, "
         f"Conditions: {m.get('conditions', 'none')}"
         for m in family_members
@@ -284,8 +286,7 @@ Create a unified family nutrition plan for the following family members:
 
 Generate:
 1. A shared family meal plan that works for everyone, formatted as a point-wise bulleted list for each meal
-
-2. Individual modifications needed for each member
+2. Exact portion splits for each family member for every meal (e.g., "Dad: 2 cups, Mom: 1.5 cups, Child: 0.5 cups") based on their age and goals
 3. Practical shopping list highlights
 4. Tips for cooking one meal that satisfies all dietary needs
 <|assistant|>
@@ -469,7 +470,7 @@ def api_recipe():
         
     prompt = build_recipe_prompt(food_name, profile)
     
-    reply = wml_generate(prompt)
+    reply = call_watsonx(prompt)
     if reply:
         return jsonify({"recipe": reply})
     return jsonify({"error": "Failed to generate recipe."}), 500

@@ -179,7 +179,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .nb-icon-btn:hover { 
-  transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1); 
   color: #10b981;
 }
@@ -257,7 +256,6 @@ h1, h2, h3, h4, h5, h6 {
 
 .nb-card:hover { 
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15), 0 5px 15px rgba(0, 0, 0, 0.08); 
-  transform: translateY(-5px) scale(1.01);
   border-color: var(--nb-accent);
 }
 
@@ -298,11 +296,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .nb-btn:hover {
-  transform:  translateY(-2px);
   box-shadow: var(--nb-shadow-lg);
 }
 
-.nb-btn:active { transform: translateY(0); box-shadow: none; }
+.nb-btn:active { box-shadow: none; }
 
 .nb-btn-primary { background: var(--nb-accent); color: #fff; }
 .nb-btn-secondary { background: var(--nb-accent2); color: #fff; }
@@ -748,7 +745,7 @@ h1, h2, h3, h4, h5, h6 {
   transition:    all var(--nb-transition);
 }
 
-.nb-stat-card:hover { transform: translate(-2px, -2px); box-shadow: var(--nb-shadow-lg); }
+.nb-stat-card:hover { box-shadow: var(--nb-shadow-lg); }
 
 .nb-stat-accent { border-top: 4px solid var(--nb-accent); }
 .nb-stat-green  { border-top: 4px solid var(--nb-green);  }

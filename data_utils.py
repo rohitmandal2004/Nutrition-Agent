@@ -55,8 +55,8 @@ def search_food(query, limit=5):
             matches = best_matches.sort_values(by='score', ascending=False)
             matches = matches.drop(columns=['score'])
     
-    # Convert matches to list of dicts
-    results = matches.head(limit).to_dict(orient='records')
+    # Convert matches to list of dicts, replacing NaN with 0
+    results = matches.head(limit).fillna(0).to_dict(orient='records')
     return results
 
 def get_context_for_llm(query):

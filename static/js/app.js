@@ -436,8 +436,18 @@ async function renderDashboard() {
   await fetchAndRenderProgress();
   
   if ($('dashWaterCount') && State.userProfile) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (State.userProfile.waterDate !== todayStr) {
+      State.userProfile.waterCount = 0;
+      State.userProfile.waterDate = todayStr;
+      localStorage.setItem('nb-userProfile', JSON.stringify(State.userProfile));
+    }
     const wc = State.userProfile.waterCount || 0;
     $('dashWaterCount').textContent = `${wc} / 8 Glasses`;
+    if ($('waterFill')) {
+      const fillPct = Math.min(100, (wc / 8) * 100);
+      $('waterFill').style.height = `${fillPct}%`;
+    }
   }
   
   if (typeof updateDashboardCalculations === 'function') updateDashboardCalculations();
@@ -525,7 +535,7 @@ async function fetchAndRenderProgress() {
   try {
     const res = await fetch('/api/progress');
     const data = await res.json();
-    const history = data.progress || [];
+    const history = data.history || [];
     
     // Update the snapshot with latest weight and BMI if history exists
     if (history.length > 0) {
@@ -757,6 +767,7 @@ async function generateMealPlan() {
     State.lastMealPlan = plan; // Store for grocery list parsing
     
     if ($('exportPdfBtn')) show($('exportPdfBtn'));
+    if ($('exportCalBtn')) show($('exportCalBtn'));
     if ($('groceryListBtn')) show($('groceryListBtn'));
   } catch (err) {
     output.innerHTML = '<p class="text-danger">⚠️ Failed to generate meal plan.</p>';
@@ -793,22 +804,46 @@ async function generateGroceryList() {
   }
 }
 
-function exportPdf(elementId, filename) {
-  const element = $(elementId);
-  if (!element || !window.html2pdf) {
-    showToast('⚠️ PDF export unavailable');
+function exportToICS() {
+  if (!State.lastMealPlan) {
+    showToast('⚠️ No meal plan to export');
     return;
   }
   
-  const opt = {
-    margin:       0.5,
-    filename:     filename,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2 },
-    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-  };
+  const date = new Date();
+  const dtStamp = date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const dtStart = dtStamp.substring(0, 8);
   
-  html2pdf().set(opt).from(element).save();
+  let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//NutriBot//Meal Plan//EN\r\n";
+  icsContent += "BEGIN:VEVENT\r\n";
+  icsContent += `DTSTAMP:${dtStamp}\r\n`;
+  icsContent += `DTSTART;VALUE=DATE:${dtStart}\r\n`;
+  icsContent += "SUMMARY:NutriBot Weekly Meal Plan\r\n";
+  
+  let desc = State.lastMealPlan.replace(/\n/g, "\\n");
+  let descLines = `DESCRIPTION:${desc}\r\n`;
+  let foldedDesc = "";
+  while (descLines.length > 0) {
+    if (descLines.length > 75) {
+      foldedDesc += descLines.substring(0, 75) + "\r\n ";
+      descLines = descLines.substring(75);
+    } else {
+      foldedDesc += descLines;
+      descLines = "";
+    }
+  }
+  icsContent += foldedDesc;
+  icsContent += "END:VEVENT\r\nEND:VCALENDAR";
+  
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'NutriBot_Meal_Plan.ics';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 }
 
 // ── BMI Calculator ─────────────────────────────────────────────
@@ -1014,7 +1049,7 @@ function renderFamilyList() {
     card.innerHTML = `
       <div class="nb-member-avatar">${avatars[idx % avatars.length]}</div>
       <div class="nb-member-info">
-        <div class="nb-member-name">${escHtml(member.name || 'Member')}</div>
+        <div class="nb-member-name">${escHtml(member.name || 'Member')}${member.relation ? ' <small class="text-muted" style="font-weight:normal; font-size:0.8rem;">(' + escHtml(member.relation) + ')</small>' : ''}</div>
         <div class="nb-member-meta">
           Age ${member.age || '?'} • ${member.gender || ''} • ${member.goal || ''}
           ${member.conditions ? ' • ' + escHtml(member.conditions) : ''}
@@ -1058,7 +1093,9 @@ async function generateFamilyPlan() {
     const plan = data.plan || data.error || 'Unable to generate plan.';
 
     output.innerHTML = `<div class="nb-ai-output nb-rendered-md">${renderMd(plan)}</div>`;
+    State.lastMealPlan = plan;
     if ($('exportPdfBtn')) show($('exportPdfBtn'));
+    if ($('exportCalBtn')) show($('exportCalBtn'));
   } catch (err) {
     output.innerHTML = '<p class="text-danger">⚠️ Failed to generate family plan.</p>';
     console.error('Family plan error:', err);
@@ -1075,9 +1112,15 @@ function autoResize(el) {
 
 // ── Escape HTML ────────────────────────────────────────────────
 function escHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return String(str).replace(/[&<>"']/g, function(s) {
+    return {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[s];
+  });
 }
 
 // ── Health Check on Load ────────────────────────────────────────
@@ -1473,6 +1516,45 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     html2pdf().set(opt).from(element).save();
   });
+  
+  $('exportCalBtn')?.addEventListener('click', exportToICS);
+  $('groceryListBtn')?.addEventListener('click', generateGroceryList);
+
+  // ── Barcode Scanner
+  $('scanBarcodeBtn')?.addEventListener('click', () => {
+    const readerDiv = $('barcodeReader');
+    if (readerDiv.style.display === 'block') {
+      readerDiv.style.display = 'none';
+      if (window.html5QrcodeScanner) window.html5QrcodeScanner.clear();
+      return;
+    }
+    
+    show(readerDiv);
+    window.html5QrcodeScanner = new Html5QrcodeScanner("barcodeReader", { fps: 10, qrbox: {width: 250, height: 150} }, false);
+    
+    window.html5QrcodeScanner.render((decodedText) => {
+      window.html5QrcodeScanner.clear();
+      hide(readerDiv);
+      showToast('Barcode scanned! Fetching data...');
+      
+      fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 1) {
+            const name = data.product.product_name || 'Unknown Food';
+            $('unifiedFoodInput').value = name;
+            showToast(`Found: ${name}`);
+            searchFoodDb();
+          } else {
+            showToast('⚠️ Product not found in OpenFoodFacts');
+          }
+        })
+        .catch(err => {
+          showToast('⚠️ Failed to fetch product info');
+          console.error(err);
+        });
+    }, (error) => {});
+  });
 
   // ── BMI Calculator
   $('calcBmiBtn')?.addEventListener('click', calculateBMI);
@@ -1509,6 +1591,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     State.familyMembers.push({
       name:       name,
+      relation:   $('fm-relation')?.value?.trim() || '',
       age:        $('fm-age')?.value || '?',
       gender:     $('fm-gender')?.value || 'female',
       goal:       $('fm-goal')?.value || 'healthy eating',
@@ -1532,7 +1615,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function clearMemberForm() {
-  ['fm-name', 'fm-age', 'fm-conditions'].forEach(id => {
+  ['fm-name', 'fm-relation', 'fm-age', 'fm-conditions'].forEach(id => {
     const el = $(id);
     if (el) el.value = '';
   });

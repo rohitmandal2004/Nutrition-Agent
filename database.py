@@ -147,10 +147,12 @@ def add_progress(weight, bmi, date=None):
         date = datetime.now(timezone.utc).date().isoformat()
     conn = get_db()
     with conn:
-        conn.execute(
-            'INSERT INTO progress_history (weight, bmi, date) VALUES (?, ?, ?)',
-            (weight, bmi, date)
-        )
+        cursor = conn.execute('SELECT id FROM progress_history WHERE date = ?', (date,))
+        row = cursor.fetchone()
+        if row:
+            conn.execute('UPDATE progress_history SET weight = ?, bmi = ? WHERE id = ?', (weight, bmi, row['id']))
+        else:
+            conn.execute('INSERT INTO progress_history (weight, bmi, date) VALUES (?, ?, ?)', (weight, bmi, date))
     conn.close()
 
 def get_progress():

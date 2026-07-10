@@ -16,6 +16,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- HTML2PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- HTML5 QR Code -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
@@ -181,6 +183,9 @@
                 <span>Daily Water Intake</span>
                 <strong id="dashWaterCount" class="text-primary">0 / 8 Glasses</strong>
               </label>
+              <div class="nb-water-glass" style="width: 50px; height: 80px; border: 3px solid #0d6efd; border-radius: 0 0 10px 10px; border-top: none; margin: 10px auto; position: relative; overflow: hidden; background: rgba(13, 110, 253, 0.05);">
+                <div id="waterFill" style="width: 100%; height: 0%; background: #0d6efd; position: absolute; bottom: 0; transition: height 0.5s ease-in-out;"></div>
+              </div>
               <button id="logWaterBtn" class="nb-btn nb-btn-primary w-100" style="background: rgba(13, 110, 253, 0.1); color: var(--bs-primary); border: 1px solid rgba(13,110,253,0.3);"><i class="bi bi-droplet-fill"></i> +1 Glass</button>
             </div>
           </div>
@@ -241,8 +246,10 @@
             <div class="nb-form-row align-items-end">
               <div class="nb-form-group flex-grow-1">
                 <label>Describe your meal or search for an Indian dish</label>
-                <input class="nb-input" id="unifiedFoodInput"
-                  placeholder="e.g. 2 rotis with dal makhani, or 'Garam Chai'..." />
+                <div class="d-flex gap-2">
+                  <input class="nb-input flex-grow-1" id="unifiedFoodInput" placeholder="e.g. 2 rotis with dal makhani..." />
+                  <button class="nb-btn nb-btn-secondary" id="scanBarcodeBtn" title="Scan Barcode" style="padding: 0 15px;"><i class="bi bi-upc-scan"></i></button>
+                </div>
               </div>
               <div class="d-flex gap-2">
                 <button class="nb-btn nb-btn-primary" id="searchFoodBtn">
@@ -252,6 +259,7 @@
                   <i class="bi bi-microscope"></i> AI Analyze Meal
                 </button>
               </div>
+              <div id="barcodeReader" style="display:none; width:100%; max-width:400px; margin-top:10px; border:1px solid var(--nb-muted); border-radius:8px;"></div>
               <div style="font-size:0.75rem; color: var(--nb-muted); margin-top: 4px;">
                 <i class="bi bi-info-circle"></i> <strong>Search</strong>: find a known dish in the database &nbsp;|&nbsp; <strong>AI Analyze</strong>: estimate nutrition from a meal description
               </div>
@@ -385,6 +393,10 @@
                 <input class="nb-input" id="fm-name" placeholder="e.g. Priya" />
               </div>
               <div class="nb-form-group">
+                <label>Relation</label>
+                <input class="nb-input" id="fm-relation" placeholder="e.g. Mother" />
+              </div>
+              <div class="nb-form-group" style="max-width: 80px;">
                 <label>Age</label>
                 <input class="nb-input" id="fm-age" type="number" placeholder="35" />
               </div>
@@ -430,6 +442,9 @@
             <div class="d-flex gap-2">
               <button class="nb-btn nb-btn-secondary nb-btn-sm" id="groceryListBtn" style="display: none; background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.3);">
                 <i class="bi bi-cart3"></i> Grocery List
+              </button>
+              <button class="nb-btn nb-btn-secondary nb-btn-sm" id="exportCalBtn" style="display: none; background: rgba(13, 110, 253, 0.1); color: #0d6efd; border: 1px solid rgba(13,110,253,0.3);">
+                <i class="bi bi-calendar-event"></i> Export to Calendar
               </button>
               <button class="nb-btn nb-btn-secondary nb-btn-sm" id="exportPdfBtn" style="display: none;">
                 <i class="bi bi-file-earmark-pdf"></i> Export to PDF

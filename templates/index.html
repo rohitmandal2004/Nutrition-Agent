@@ -60,106 +60,7 @@
 ════════════════════════════════════════════════════════════ -->
 <main class="nb-main">
 
-  <!-- ─── TAB: PROFILE (Moved from sidebar) ─────────────────── -->
-  <section class="nb-tab" id="tab-profile">
-    <div class="nb-page-header">
-      <h1>My Profile</h1>
-      <p>Update your details and access quick prompts</p>
-    </div>
-    <div class="row g-4">
-      <div class="col-lg-6">
-        <div class="nb-card">
-          <div class="nb-card-header"><i class="bi bi-person-circle"></i> Profile Settings</div>
-          <div class="nb-card-body">
-            <div class="nb-form-group">
-              <label>Name</label>
-              <input class="nb-input" id="p-name" placeholder="Your name" />
-            </div>
-            <div class="nb-form-row mt-2">
-              <div class="nb-form-group">
-                <label>Age</label>
-                <input class="nb-input" id="p-age" type="number" placeholder="25" min="1" max="120" />
-              </div>
-              <div class="nb-form-group">
-                <label>Gender</label>
-                <select class="nb-input" id="p-gender">
-                  <option value="">Select</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-            </div>
-            <div class="nb-form-row mt-2">
-              <div class="nb-form-group">
-                <label>Weight (kg)</label>
-                <input class="nb-input" id="p-weight" type="number" placeholder="65" />
-              </div>
-              <div class="nb-form-group">
-                <label>Height (cm)</label>
-                <input class="nb-input" id="p-height" type="number" placeholder="165" />
-              </div>
-              <div class="nb-form-group">
-                <label>Target Wt (kg)</label>
-                <input class="nb-input" id="p-target-weight" type="number" placeholder="60" />
-              </div>
-            </div>
-            <div class="nb-form-group mt-2">
-              <label>Health Goal</label>
-              <select class="nb-input" id="p-goal">
-                <option value="maintain weight">Maintain Weight</option>
-                <option value="lose weight">Lose Weight</option>
-                <option value="gain weight">Gain Weight</option>
-                <option value="build muscle">Build Muscle</option>
-                <option value="manage diabetes">Manage Diabetes</option>
-                <option value="heart health">Heart Health</option>
-                <option value="general wellness">General Wellness</option>
-              </select>
-            </div>
-            <div class="nb-form-group mt-2">
-              <label>Diet Type</label>
-              <select class="nb-input" id="p-diet">
-                <option value="balanced">Balanced</option>
-                <option value="vegetarian">Vegetarian</option>
-                <option value="vegan">Vegan</option>
-                <option value="jain vegetarian">Jain Vegetarian</option>
-                <option value="non-vegetarian">Non-Vegetarian</option>
-                <option value="keto">Keto</option>
-                <option value="high-protein">High Protein</option>
-              </select>
-            </div>
-            <div class="nb-form-group mt-2">
-              <label>Health Conditions</label>
-              <input class="nb-input" id="p-conditions" placeholder="Diabetes, PCOS, etc." />
-            </div>
-            <div class="nb-form-group mt-2 mb-3">
-              <label>Food Allergies</label>
-              <input class="nb-input" id="p-allergies" placeholder="Nuts, gluten, etc." />
-            </div>
-            <button class="nb-btn nb-btn-primary w-100" id="saveProfileBtn">
-              <i class="bi bi-check2-circle"></i> Save Profile
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-6">
-        <!-- Quick Prompts -->
-        <div class="nb-card">
-          <div class="nb-card-header"><i class="bi bi-lightning-charge-fill"></i> Quick Prompts</div>
-          <div class="nb-card-body nb-quick-prompts">
-            <button class="nb-chip" data-prompt="What should I eat for breakfast today?">🍳 Breakfast ideas</button>
-            <button class="nb-chip" data-prompt="Give me a high protein vegetarian meal plan for one day">💪 High protein plan</button>
-            <button class="nb-chip" data-prompt="What are the best Indian foods for weight loss?">⚖️ Weight loss foods</button>
-            <button class="nb-chip" data-prompt="Suggest healthy Indian snacks under 200 calories">🥜 Healthy snacks</button>
-            <button class="nb-chip" data-prompt="What foods help manage blood sugar levels?">🩸 Blood sugar tips</button>
-            <button class="nb-chip" data-prompt="List calcium-rich Indian foods for bone health">🦴 Bone health</button>
-            <button class="nb-chip" data-prompt="How much water should I drink daily?">💧 Hydration guide</button>
-            <button class="nb-chip" data-prompt="What is a balanced Indian thali and its nutrition?">🍽️ Indian thali</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+
 
   <!-- ─── TAB: CHAT ─────────────────────────────────────────── -->
   <section class="nb-tab" id="tab-chat">
@@ -223,7 +124,10 @@
             <textarea class="nb-input nb-chat-textarea" id="chatInput"
               placeholder="Ask me anything about nutrition, meal plans, healthy recipes..."
               rows="1"></textarea>
-            <button class="nb-btn nb-btn-send" id="sendBtn">
+            <button class="nb-btn nb-btn-secondary" id="voiceBtn" title="Speak to NutriBot">
+              <i class="bi bi-mic-fill"></i>
+            </button>
+            <button class="nb-btn nb-btn-send" id="sendBtn" title="Send message">
               <i class="bi bi-send-fill"></i>
             </button>
           </div>
@@ -341,12 +245,15 @@
                   placeholder="e.g. 2 rotis with dal makhani, or 'Garam Chai'..." />
               </div>
               <div class="d-flex gap-2">
-                <button class="nb-btn nb-btn-secondary" id="searchFoodBtn">
+                <button class="nb-btn nb-btn-primary" id="searchFoodBtn">
                   <i class="bi bi-database"></i> Search Database
                 </button>
-                <button class="nb-btn nb-btn-primary" id="analyzeMealBtn">
+                <button class="nb-btn nb-btn-outline" id="analyzeMealBtn" style="border: 2px solid #10b981; color: #10b981;">
                   <i class="bi bi-microscope"></i> AI Analyze Meal
                 </button>
+              </div>
+              <div style="font-size:0.75rem; color: var(--nb-muted); margin-top: 4px;">
+                <i class="bi bi-info-circle"></i> <strong>Search</strong>: find a known dish in the database &nbsp;|&nbsp; <strong>AI Analyze</strong>: estimate nutrition from a meal description
               </div>
             </div>
             
@@ -437,7 +344,10 @@
             </div>
             <div class="nb-form-group">
               <label>Foods to Exclude</label>
-              <input class="nb-input" id="mp-exclusions" placeholder="Onion, garlic, dairy..." />
+              <div class="nb-tag-input-wrap" id="mp-exclusions-wrap" style="display:flex; flex-wrap:wrap; gap:6px; padding:8px; background: var(--nb-input-bg); border: var(--nb-border); border-radius: var(--nb-radius); min-height: 42px; align-items:center; cursor:text;" onclick="this.querySelector('input').focus()">
+                <input id="mp-exclusions-input" placeholder="Type &amp; press Enter" style="border:none; outline:none; background:transparent; color:var(--nb-fg); font-size:0.9rem; flex:1; min-width:120px;" />
+              </div>
+              <input type="hidden" id="mp-exclusions" value="" />
             </div>
             <button class="nb-btn nb-btn-primary w-100" id="generateMealPlanBtn">
               <i class="bi bi-calendar2-plus-fill"></i> Generate Personal Plan
@@ -736,30 +646,36 @@
           </div>
           <div class="mb-3">
             <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Health Conditions</label>
-            <input class="nb-input" id="p-conditions" placeholder="Diabetes, PCOS, etc." style="background: rgba(255,255,255,0.8); color: #000;" />
+            <div class="nb-tag-input-wrap" id="p-conditions-wrap" style="display:flex; flex-wrap:wrap; gap:6px; padding:8px; background: rgba(255,255,255,0.8); border: var(--nb-border); border-radius: var(--nb-radius); min-height: 42px; align-items:center; cursor:text;" onclick="this.querySelector('input').focus()">
+              <input id="p-conditions-input" placeholder="Type &amp; press Enter" style="border:none; outline:none; background:transparent; color:#000; font-size:0.9rem; flex:1; min-width:120px;" />
+            </div>
+            <input type="hidden" id="p-conditions" value="" />
           </div>
           <div class="mb-4">
             <label class="form-label text-muted fw-bold" style="font-size: 0.75rem; text-transform: uppercase;">Food Allergies</label>
-            <input class="nb-input" id="p-allergies" placeholder="e.g. Brinjal" style="background: rgba(255,255,255,0.8); color: #000;" />
+            <div class="nb-tag-input-wrap" id="p-allergies-wrap" style="display:flex; flex-wrap:wrap; gap:6px; padding:8px; background: rgba(255,255,255,0.8); border: var(--nb-border); border-radius: var(--nb-radius); min-height: 42px; align-items:center; cursor:text;" onclick="this.querySelector('input').focus()">
+              <input id="p-allergies-input" placeholder="Type &amp; press Enter" style="border:none; outline:none; background:transparent; color:#000; font-size:0.9rem; flex:1; min-width:120px;" />
+            </div>
+            <input type="hidden" id="p-allergies" value="" />
           </div>
           <button class="nb-btn nb-btn-primary w-100 py-2 fw-bold" id="saveProfileBtn">
             <i class="bi bi-check-circle"></i> Save Profile
           </button>
         </div>
       </div>
-      <!-- Right: Quick Prompts Preview -->
+      <!-- Right: Profile Stats & Actions -->
       <div class="col-lg-6">
         <div class="nb-card p-4 h-100 shadow-sm" style="background: var(--nb-surface); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-          <h5 class="mb-4"><i class="bi bi-lightning-fill"></i> Quick Prompts</h5>
-          <div class="d-flex flex-wrap gap-2">
-             <div class="nb-chip" data-prompt="Breakfast ideas"><i class="bi bi-search"></i> Breakfast ideas</div>
-             <div class="nb-chip" data-prompt="High protein plan"><i class="bi bi-egg-fried text-warning"></i> High protein plan</div>
-             <div class="nb-chip" data-prompt="Weight loss foods"><i class="bi bi-arrow-down-circle text-success"></i> Weight loss foods</div>
-             <div class="nb-chip" data-prompt="Healthy snacks"><i class="bi bi-apple text-danger"></i> Healthy snacks</div>
-             <div class="nb-chip" data-prompt="Blood sugar tips"><i class="bi bi-droplet-half text-danger"></i> Blood sugar tips</div>
-             <div class="nb-chip" data-prompt="Bone health"><i class="bi bi-activity"></i> Bone health</div>
-             <div class="nb-chip" data-prompt="Hydration guide"><i class="bi bi-water text-info"></i> Hydration guide</div>
-             <div class="nb-chip" data-prompt="Indian thali"><i class="bi bi-basket" style="color: #a855f7;"></i> Indian thali</div>
+          <h5 class="mb-4"><i class="bi bi-graph-up-arrow"></i> Profile Summary</h5>
+          <div id="profile-summary-display" class="d-flex flex-column gap-3">
+            <div class="d-flex justify-content-between"><span class="nb-muted">Name</span><strong id="ps-name">--</strong></div>
+            <div class="d-flex justify-content-between"><span class="nb-muted">Age / Gender</span><strong id="ps-age-gender">--</strong></div>
+            <div class="d-flex justify-content-between"><span class="nb-muted">Weight</span><strong id="ps-weight">--</strong></div>
+            <div class="d-flex justify-content-between"><span class="nb-muted">Height</span><strong id="ps-height">--</strong></div>
+            <div class="d-flex justify-content-between"><span class="nb-muted">Goal</span><strong id="ps-goal" class="text-capitalize">--</strong></div>
+            <div class="d-flex justify-content-between"><span class="nb-muted">BMI</span><strong id="ps-bmi">--</strong></div>
+            <hr style="opacity: 0.15;" />
+            <p class="nb-muted" style="font-size:0.8rem;">💡 Save your profile to see personalized tips in the Chat and Dashboard tabs.</p>
           </div>
         </div>
       </div>
@@ -872,6 +788,24 @@
       </div>
       <button class="nb-btn nb-btn-primary mt-3 w-100" onclick="window.print()">
         <i class="bi bi-printer"></i> Print List
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Recipe Modal -->
+<div class="nb-onboarding-wrapper" id="recipeModal" style="display:none; z-index: 1050; position: fixed; inset: 0; background: rgba(0,0,0,0.5);">
+  <div class="container h-100 d-flex align-items-center justify-content-center py-5">
+    <div class="nb-card shadow-lg p-4 w-100" style="max-width: 700px; max-height: 85vh; display: flex; flex-direction: column; background: var(--nb-surface);">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0"><i class="bi bi-egg-fried text-warning"></i> AI Recipe Generator</h5>
+        <button class="btn-close btn-close-white" onclick="document.getElementById('recipeModal').style.display='none'"></button>
+      </div>
+      <div id="recipeContent" class="flex-grow-1 nb-rendered-md" style="overflow-y: auto; padding-right: 10px;">
+        <!-- Filled by JS -->
+      </div>
+      <button class="nb-btn nb-btn-primary mt-3 w-100" onclick="window.print()">
+        <i class="bi bi-printer"></i> Print Recipe
       </button>
     </div>
   </div>

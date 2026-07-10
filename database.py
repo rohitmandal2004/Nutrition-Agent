@@ -80,6 +80,42 @@ def get_session_messages(session_id):
     conn.close()
     return messages
 
+def _generate_session_title(message: str) -> str:
+    """Generate a short, descriptive title from the first chat message."""
+    message = message.strip().lower()
+    # Map common nutrition query patterns to concise, readable titles
+    patterns = [
+        (["breakfast", "morning"], "Breakfast Ideas"),
+        (["lunch"], "Lunch Suggestions"),
+        (["dinner", "evening meal"], "Dinner Planning"),
+        (["snack"], "Healthy Snacks"),
+        (["meal plan", "weekly plan", "7 day", "week"], "Meal Plan Request"),
+        (["protein", "high protein"], "High Protein Diet"),
+        (["weight loss", "lose weight", "fat loss"], "Weight Loss Plan"),
+        (["weight gain", "gain weight", "bulk"], "Weight Gain Plan"),
+        (["muscle", "build muscle", "gym"], "Muscle Building"),
+        (["diabetes", "sugar", "blood sugar"], "Diabetes Nutrition"),
+        (["heart", "cholesterol"], "Heart Health"),
+        (["vegetarian", "vegan"], "Vegetarian Diet"),
+        (["calories", "calorie count"], "Calorie Tracking"),
+        (["bmi", "body mass"], "BMI Calculation"),
+        (["recipe"], "Recipe Request"),
+        (["grocery", "shopping"], "Grocery List"),
+        (["family", "kids", "children"], "Family Nutrition"),
+        (["indian", "roti", "dal", "curry", "biryani", "sabzi"], "Indian Food Guide"),
+        (["analyze", "analysis", "nutrition info"], "Meal Analysis"),
+    ]
+    for keywords, title in patterns:
+        if any(kw in message for kw in keywords):
+            return title
+    # Fallback: trim to 32 chars, capitalize, clean up
+    raw = message[:32].strip()
+    raw = raw[0].upper() + raw[1:] if raw else "New Chat"
+    if len(message) > 32:
+        raw += "..."
+    return raw
+
+
 def add_message(session_id, role, content):
     now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
@@ -93,12 +129,12 @@ def add_message(session_id, role, content):
             cursor = conn.execute('SELECT title FROM sessions WHERE id = ?', (session_id,))
             row = cursor.fetchone()
             if row and row['title'] == "New Chat":
-                # Create a short title from the first message
-                title = (content[:30] + '...') if len(content) > 30 else content
+                title = _generate_session_title(content)
                 conn.execute('UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?', (title, now, session_id))
             else:
                 conn.execute('UPDATE sessions SET updated_at = ? WHERE id = ?', (now, session_id))
     conn.close()
+
 
 def delete_session(session_id):
     conn = get_db()

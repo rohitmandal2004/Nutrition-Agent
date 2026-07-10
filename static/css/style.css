@@ -306,11 +306,18 @@ h1, h2, h3, h4, h5, h6 {
 
 .nb-btn-primary { background: var(--nb-accent); color: #fff; }
 .nb-btn-secondary { background: var(--nb-accent2); color: #fff; }
+.nb-btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #fff; }
 .nb-btn-outline { 
   background: transparent; 
   color: var(--nb-fg); 
   border: var(--nb-border);
 }
+.nb-btn-outline-primary {
+  background: transparent;
+  color: #10b981;
+  border: 2px solid #10b981;
+}
+.nb-btn-outline-primary:hover { background: #10b981; color: #fff; }
 .nb-btn-sm { padding: 6px 12px; font-size: 0.85rem; }
 
 .nb-text-btn {

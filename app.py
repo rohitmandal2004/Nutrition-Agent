@@ -240,6 +240,32 @@ Provide:
 """
 
 
+def build_recipe_prompt(food_name: str, profile: dict) -> str:
+    diet_type  = profile.get("diet_type", "balanced")
+    conditions = profile.get("health_conditions", "none")
+    calories   = profile.get("target_calories", 2000)
+
+    return f"""<|system|>
+{AGENT_INSTRUCTIONS}
+<|end|>
+<|user|>
+Please provide a healthy, step-by-step recipe for "{food_name}".
+Tailor the ingredients and cooking methods considering the following user profile:
+- Diet type: {diet_type}
+- Health conditions: {conditions}
+- Daily calorie target: {calories} kcal
+
+Include:
+1. Ingredients list (with measurements)
+2. Step-by-step cooking instructions
+3. Approximate nutritional information per serving (Calories, Protein, Carbs, Fats)
+4. A brief tip on why this version is healthy
+
+CRITICAL: Do NOT use the tilde symbol (~) anywhere in your response.
+<|assistant|>
+"""
+
+
 def build_family_plan_prompt(family_members: list) -> str:
     members_text = "\n".join(
         f"  - {m.get('name', 'Member')}: Age {m.get('age', '?')}, "
@@ -430,6 +456,23 @@ def meal_plan():
         "meal_plan": response,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
+
+
+@app.route('/api/recipe', methods=['POST'])
+def api_recipe():
+    data = request.json or {}
+    food_name = data.get('food_name', '')
+    profile = data.get('profile', {})
+    
+    if not food_name:
+        return jsonify({"error": "Food name is required."}), 400
+        
+    prompt = build_recipe_prompt(food_name, profile)
+    
+    reply = wml_generate(prompt)
+    if reply:
+        return jsonify({"recipe": reply})
+    return jsonify({"error": "Failed to generate recipe."}), 500
 
 
 @app.route("/api/analyze-meal", methods=["POST"])

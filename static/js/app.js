@@ -124,6 +124,17 @@ function saveProfile() {
     $('p-avatar').style.display = 'none'; // hide input after save
   }
 
+  // Update profile summary panel
+  if ($('ps-name')) $('ps-name').textContent = p.name || '--';
+  if ($('ps-age-gender')) $('ps-age-gender').textContent = `${p.age || '--'} / ${p.gender || '--'}`;
+  if ($('ps-weight')) $('ps-weight').textContent = p.weight ? p.weight + ' kg' : '--';
+  if ($('ps-height')) $('ps-height').textContent = p.height ? p.height + ' cm' : '--';
+  if ($('ps-goal')) $('ps-goal').textContent = p.goal || '--';
+  if ($('ps-bmi') && p.weight && p.height) {
+    const hm = parseFloat(p.height) / 100;
+    $('ps-bmi').textContent = (parseFloat(p.weight) / (hm * hm)).toFixed(1);
+  }
+
   if (typeof renderDashboard === 'function') renderDashboard();
   
   showToast('✅ Profile saved!');
@@ -531,9 +542,32 @@ async function fetchAndRenderProgress() {
 
 function renderProgressChart(history) {
   const canvases = ['progressChart', 'bmiTabChart'];
-  
+
+  // Guard: need at least 2 distinct data points
+  if (history.length < 2) {
+    canvases.forEach(id => {
+      const canvas = $(id);
+      if (!canvas) return;
+      if (State.charts && State.charts[id]) {
+        State.charts[id].destroy();
+        State.charts[id] = null;
+      }
+      const wrap = canvas.parentElement;
+      if (wrap) {
+        canvas.style.display = 'none';
+        // Show empty state message (remove old one first)
+        const old = wrap.querySelector('.nb-chart-empty');
+        if (old) old.remove();
+        const msg = document.createElement('div');
+        msg.className = 'nb-chart-empty text-center py-4 nb-muted';
+        msg.innerHTML = '<i class="bi bi-graph-up" style="font-size:2rem; opacity:0.4;"></i><br><small>Log your weight for at least 2 days to see your progress trend.</small>';
+        wrap.appendChild(msg);
+      }
+    });
+    return;
+  }
+
   const labels = history.map(entry => {
-    // Format date nicely (e.g. "Jul 3")
     const d = new Date(entry.date);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   });
@@ -545,23 +579,25 @@ function renderProgressChart(history) {
   canvases.forEach(id => {
     const canvas = $(id);
     if (!canvas) return;
+    canvas.style.display = '';
+    // Remove any empty state message
+    const wrap = canvas.parentElement;
+    if (wrap) { const old = wrap.querySelector('.nb-chart-empty'); if (old) old.remove(); }
     const ctx = canvas.getContext('2d');
-    
+
     if (State.charts[id]) {
       State.charts[id].destroy();
     }
-  
 
-  
     State.charts[id] = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: labels.length ? labels : ['No Data'],
+        labels,
         datasets: [
           {
             label: 'Weight (kg)',
-            data: weights.length ? weights : [0],
-            borderColor: '#ff6b35', // Primary brand color
+            data: weights,
+            borderColor: '#ff6b35',
             backgroundColor: 'rgba(255, 107, 53, 0.1)',
             yAxisID: 'yWeight',
             tension: 0.3,
@@ -569,8 +605,8 @@ function renderProgressChart(history) {
           },
           {
             label: 'BMI',
-            data: bmis.length ? bmis : [0],
-            borderColor: '#4d8076', // Muted green/teal
+            data: bmis,
+            borderColor: '#4d8076',
             backgroundColor: 'rgba(77, 128, 118, 0.1)',
             yAxisID: 'yBmi',
             tension: 0.3,
@@ -700,7 +736,7 @@ async function generateMealPlan() {
     target_calories: parseInt($('mp-calories')?.value) || 2000,
     cuisine:         $('mp-cuisine')?.value || 'Indian',
     goal:            $('mp-goal')?.value || 'healthy eating',
-    exclusions:      $('mp-exclusions')?.value?.trim() || 'none',
+    exclusions:      ($('mp-exclusions')?.value?.trim() || 'none'),
   };
 
   showLoading(`Generating your ${prefs.days}-day meal plan...`);
@@ -895,9 +931,14 @@ async function searchFoodDb() {
           <div class="nb-card" style="padding: 0.75rem; border-color: var(--nb-muted);">
             <div class="d-flex justify-content-between align-items-center">
               <strong>${escHtml(item['Dish Name'] || 'Unknown')}</strong>
-              <button class="nb-btn nb-btn-sm nb-btn-primary add-log-btn" data-name="${escHtml(item['Dish Name'])}" data-cal="${item['Calories (kcal)']}" data-pro="${item['Protein (g)']}" data-carb="${item['Carbohydrates (g)']}" data-fat="${item['Fats (g)']}">
-                <i class="bi bi-plus-lg"></i> Add
-              </button>
+              <div class="d-flex gap-2">
+                <button class="nb-btn nb-btn-sm nb-btn-outline-primary" onclick="generateRecipe('${escHtml(item['Dish Name'])}')">
+                  <i class="bi bi-egg-fried"></i> Get Recipe
+                </button>
+                <button class="nb-btn nb-btn-sm nb-btn-primary add-log-btn" data-name="${escHtml(item['Dish Name'])}" data-cal="${item['Calories (kcal)']}" data-pro="${item['Protein (g)']}" data-carb="${item['Carbohydrates (g)']}" data-fat="${item['Fats (g)']}">
+                  <i class="bi bi-plus-lg"></i> Add
+                </button>
+              </div>
             </div>
             <div style="font-size: 0.85rem; color: var(--nb-fg); margin-top: 0.25rem;">
               <span class="badge bg-danger" style="margin-right:0.25rem;">${item['Calories (kcal)']} kcal</span>
@@ -919,6 +960,30 @@ async function searchFoodDb() {
   } catch (err) {
     output.innerHTML = '<p class="text-danger">⚠️ Failed to search food database.</p>';
     console.error('Food DB search error:', err);
+  } finally {
+    hideLoading();
+  }
+}
+
+async function generateRecipe(foodName) {
+  if (!foodName) return;
+  showLoading(`Generating recipe for ${foodName}...`);
+  
+  try {
+    const res = await fetch('/api/recipe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ food_name: foodName, profile: State.userProfile })
+    });
+    
+    const data = await res.json();
+    const recipe = data.recipe || data.error || 'Failed to generate recipe.';
+    
+    $('recipeContent').innerHTML = renderMd(recipe);
+    $('recipeModal').style.display = 'flex';
+  } catch (err) {
+    showToast('⚠️ Failed to generate recipe');
+    console.error(err);
   } finally {
     hideLoading();
   }
@@ -1122,6 +1187,75 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load state into UI
   loadStateIntoUI();
 
+  // ── Tag Input Widget Setup ──────────────────────────────────
+  function setupTagInput(wrapperId, inputId, hiddenId) {
+    const wrap = $(wrapperId);
+    const input = $(inputId);
+    const hidden = $(hiddenId);
+    if (!wrap || !input || !hidden) return;
+
+    let tags = hidden.value ? hidden.value.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+    function renderTags() {
+      // Remove existing tag chips
+      wrap.querySelectorAll('.nb-tag-chip').forEach(el => el.remove());
+      tags.forEach((tag, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'nb-tag-chip';
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#10b981;color:#fff;border-radius:20px;font-size:0.8rem;cursor:default;';
+        chip.innerHTML = `${escHtml(tag)} <span style="cursor:pointer;font-weight:bold;opacity:0.8;" data-idx="${i}">&times;</span>`;
+        chip.querySelector('span').onclick = () => {
+          tags.splice(i, 1);
+          hidden.value = tags.join(', ');
+          renderTags();
+        };
+        wrap.insertBefore(chip, input);
+      });
+      hidden.value = tags.join(', ');
+    }
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const val = input.value.trim().replace(/,$/, '');
+        if (val && !tags.includes(val)) {
+          tags.push(val);
+          renderTags();
+        }
+        input.value = '';
+      } else if (e.key === 'Backspace' && !input.value && tags.length) {
+        tags.pop();
+        renderTags();
+      }
+    });
+
+    // Pre-populate from saved profile
+    renderTags();
+    return { getTags: () => tags, setTags: (newTags) => { tags = newTags; renderTags(); } };
+  }
+
+  // Initialize tag inputs with saved profile values
+  const condSaved = State.userProfile?.health_conditions || '';
+  if ($('p-conditions')) $('p-conditions').value = condSaved;
+  const allergSaved = State.userProfile?.allergies || '';
+  if ($('p-allergies')) $('p-allergies').value = allergSaved;
+
+  const tagInputConditions = setupTagInput('p-conditions-wrap', 'p-conditions-input', 'p-conditions');
+  const tagInputAllergies  = setupTagInput('p-allergies-wrap',  'p-allergies-input',  'p-allergies');
+  setupTagInput('mp-exclusions-wrap', 'mp-exclusions-input', 'mp-exclusions');
+
+  // Initialize profile summary panel with saved data
+  const pInit = State.userProfile;
+  if ($('ps-name')) $('ps-name').textContent = pInit.name || '--';
+  if ($('ps-age-gender')) $('ps-age-gender').textContent = `${pInit.age || '--'} / ${pInit.gender || '--'}`;
+  if ($('ps-weight')) $('ps-weight').textContent = pInit.weight ? pInit.weight + ' kg' : '--';
+  if ($('ps-height')) $('ps-height').textContent = pInit.height ? pInit.height + ' cm' : '--';
+  if ($('ps-goal')) $('ps-goal').textContent = pInit.goal || '--';
+  if ($('ps-bmi') && pInit.weight && pInit.height) {
+    const hm = parseFloat(pInit.height) / 100;
+    $('ps-bmi').textContent = (parseFloat(pInit.weight) / (hm * hm)).toFixed(1);
+  }
+
   // Load chat sessions and initialize chat window
   loadChatSessions().then(async () => {
     try {
@@ -1222,6 +1356,61 @@ document.addEventListener('DOMContentLoaded', () => {
   $('sendBtn')?.addEventListener('click', () => {
     sendChat($('chatInput').value);
   });
+
+  // ── Voice Input (Speech-to-Text)
+  const voiceBtn = $('voiceBtn');
+  if (voiceBtn) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      
+      let isRecording = false;
+
+      voiceBtn.addEventListener('click', () => {
+        if (isRecording) {
+          recognition.stop();
+          return;
+        }
+        recognition.start();
+      });
+
+      recognition.onstart = () => {
+        isRecording = true;
+        voiceBtn.classList.remove('nb-btn-secondary');
+        voiceBtn.classList.add('nb-btn-danger');
+        voiceBtn.innerHTML = '<i class="bi bi-mic-fill"></i> Listening...';
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        $('chatInput').value = transcript;
+        autoResize($('chatInput'));
+        // Automatically send the message
+        sendChat(transcript);
+      };
+
+      recognition.onspeechend = () => {
+        recognition.stop();
+      };
+
+      recognition.onend = () => {
+        isRecording = false;
+        voiceBtn.classList.remove('nb-btn-danger');
+        voiceBtn.classList.add('nb-btn-secondary');
+        voiceBtn.innerHTML = '<i class="bi bi-mic-fill"></i>';
+      };
+      
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        showToast('⚠️ Voice input error: ' + event.error);
+      };
+    } else {
+      voiceBtn.style.display = 'none'; // Hide if browser doesn't support Web Speech API
+    }
+  }
 
   $('chatInput')?.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {

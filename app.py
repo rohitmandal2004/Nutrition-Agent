@@ -533,6 +533,6 @@ def bmi_calculator():
 # ─── Entry point ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     port  = int(os.getenv("APP_PORT", 5000))
-    debug = os.getenv("FLASK_DEBUG", "True").lower() == "true"
+    debug = False
     logger.info("Starting NutriBot on port %d (debug=%s)", port, debug)
     app.run(host="0.0.0.0", port=port, debug=debug)

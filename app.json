@@ -1,0 +1,40 @@
+{
+  "name": "Nutrition Agent",
+  "description": "An AI-powered nutrition assistant using IBM Watsonx.ai.",
+  "keywords": [
+    "nutrition",
+    "ai",
+    "watsonx",
+    "flask",
+    "health"
+  ],
+  "env": {
+    "WATSONX_API_KEY": {
+      "description": "API Key for IBM Watsonx.ai",
+      "required": true
+    },
+    "WATSONX_PROJECT_ID": {
+      "description": "Project ID for IBM Watsonx.ai",
+      "required": true
+    },
+    "WATSONX_URL": {
+      "description": "URL for IBM Watsonx.ai instance",
+      "required": false,
+      "value": "https://us-south.ml.cloud.ibm.com"
+    },
+    "FLASK_SECRET_KEY": {
+      "description": "Secret key for Flask sessions",
+      "generator": "secret"
+    },
+    "FLASK_ENV": {
+      "description": "Flask environment",
+      "required": false,
+      "value": "production"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
